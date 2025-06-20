@@ -1,6 +1,5 @@
-```yaml
 apiVersion: argoproj.io/v1alpha1
-kind: Workflow
+kind: ClusterWorkflowTemplate
 metadata:
   name: i15-1_notebook_test
 spec:
