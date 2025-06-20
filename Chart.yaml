@@ -1,5 +1,0 @@
-apiVersion: v2
-name: i15-1_notebook_test
-description: Notebook to plot diffraction image from processed nxs
-type: application
-version: 0.0.1
