@@ -65,10 +65,10 @@ spec:
           resources:
             requests:
               cpu: "1"
-              memory: "{{ inputs.parameters.memory }}"
+              memory: "{{`{{ inputs.parameters.memory }}`}}"
             limits:
               cpu: "1"
-              memory: "{{ inputs.parameters.memory }}"
+              memory: "{{`{{ inputs.parameters.memory }}`}}"
 
     - name: workflow-entry
       dag:
@@ -79,6 +79,6 @@ spec:
           arguments:
             parameters:
             - name: size
-              value: "{{workflow.parameters.size}}"
+              value: "{{`{{workflow.parameters.size}}`}}"
             - name: memory
-              value: "{{workflow.parameters.memory}}"
+              value: "{{`{{workflow.parameters.memory}}`}}"
