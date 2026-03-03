@@ -72,18 +72,3 @@ spec:
       path: /tmp/result_image.png
       archive:
         none: {} 
-
-  - name: notebook 
-    dag:
-      tasks:
-      -name : mount
-        template: hostpath-mount-example
-
-      - name: files
-        template: mount-files
-        dependencies: [mount]
-      - name: convert
-        template: convert-notebook
-        dependencies: [files]
-      
-        
