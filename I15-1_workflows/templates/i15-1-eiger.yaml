@@ -72,7 +72,6 @@ spec:
           y = gaussian(x, centre, 10, 0.5)
           y_noisy = y + np.random.rand(y.shape[-1]) / 5
 
-          print(" norm = ",nrm)
           print(y_noisy)
           print(np.__config__.show())
       podSpecPatch: |
