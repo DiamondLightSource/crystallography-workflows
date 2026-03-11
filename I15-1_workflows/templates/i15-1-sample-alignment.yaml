@@ -17,6 +17,11 @@ spec:
         value: 5
       - name: memory
         value: 20Gi
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
   volumeClaimTemplates:
   - metadata:
       name: tmpdir
