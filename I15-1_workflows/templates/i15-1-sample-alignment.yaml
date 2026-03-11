@@ -53,6 +53,7 @@ spec:
           import numpy as np
           import time
           from scipy.optimize import curve_fit
+          import matplotlib.pyplot as plt
 
 
           def gaussian(
@@ -73,7 +74,11 @@ spec:
           y_noisy = y + np.random.rand(y.shape[-1]) / 5
 
           print(y_noisy)
-          print(np.__config__.show())
+
+          plt.plot(x, y_noisy)
+          plt.savefig("gaussian.png")
+
+
       podSpecPatch: |
         containers:
         - name: main
