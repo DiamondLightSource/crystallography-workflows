@@ -54,6 +54,7 @@ spec:
           import time
           from scipy.optimize import curve_fit
           import matplotlib.pyplot as plt
+          import os
 
 
           def gaussian(
@@ -75,8 +76,12 @@ spec:
 
           print(y_noisy)
 
+
+          visit_dir = "{{`{{workflow.parameters.visitdir}}`}}"
+          filepath_out = os.path.join(visit_dir, "gaussian.png")
+
           plt.plot(x, y_noisy)
-          plt.savefig("gaussian.png")
+          plt.savefig(filepath_out)
 
 
       podSpecPatch: |
