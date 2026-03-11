@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: i15-1-sample_alignment
+  name: i15-1-eiger
   labels:
     workflows.diamond.ac.uk/science-group-crystallography: "true"
   annotations:
@@ -29,7 +29,7 @@ spec:
           storage: 1Gi
       storageClassName: netapp
   templates:
-    - name: i15-1-sample_alignment
+    - name: i15-1-eiger
       inputs:
         parameters:
           - name: size
@@ -52,13 +52,7 @@ spec:
 
           import numpy as np
           import time
-          from pydantic import BaseModel
           from scipy.optimize import curve_fit
-
-          class Peak(BaseModel):
-              centre: int | float
-              amplitude: int | float
-              fwhm: int | float
 
 
           def gaussian(
