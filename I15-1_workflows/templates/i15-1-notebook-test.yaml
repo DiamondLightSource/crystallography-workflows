@@ -2,7 +2,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: i15-1_notebook_test
+  name: i15-1-notebook-test
 spec:
   entrypoint: notebook
   arguments:
