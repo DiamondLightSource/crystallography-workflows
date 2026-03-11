@@ -1,0 +1,99 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i15-1-eiger
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i15-1-sample_alignmentment
+    workflows.argoproj.io/description: |
+      This is a test that Runs a numpy script in a python container.
+      The script finds the normal of the dot product of two random matrices.
+      Matrix sizes are specified by the input parameter "size".
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: size
+        value: 5
+      - name: memory
+        value: 20Gi
+  volumeClaimTemplates:
+  - metadata:
+      name: tmpdir
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: netapp
+  templates:
+    - name: i15-1-eiger
+      inputs:
+        parameters:
+          - name: size
+          - name: memory
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:test-rjcd
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        command: ["python"]
+        env:
+          - name: MKL_NUM_THREADS
+            value: "1"
+          - name: NUMEXPR_NUM_THREADS
+            value: "1"
+          - name: OMP_NUM_THREADS
+            value: "1"
+        source: |
+          from collections.abc import Collection
+
+          import numpy as np
+          import time
+          from scipy.optimize import curve_fit
+
+
+          def gaussian(
+              x: np.ndarray, cen: int | float, amp: int | float, fwhm: int | float
+          ) -> np.ndarray:
+              """1-d gaussian: gaussian(x, amp, cen, fwhm)"""
+
+              return (amp / (np.sqrt(2 * np.pi) * fwhm)) * np.exp(
+                  -((x - cen) ** 2) / (2 * fwhm**2)
+              )
+
+
+          centre = int("{{`{{ inputs.parameters.size }}`}}")
+
+
+          x = np.linspace(0,10,100)
+          y = gaussian(x, centre, 10, 0.5)
+          y_noisy = y + np.random.rand(y.shape[-1]) / 5
+
+          print(y_noisy)
+          print(np.__config__.show())
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "1"
+              memory: "{{`{{ inputs.parameters.memory }}`}}"
+            limits:
+              cpu: "1"
+              memory: "{{`{{ inputs.parameters.memory }}`}}"
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: run-benchmark
+          template: eiger-test
+          dependencies: []
+          arguments:
+            parameters:
+            - name: size
+              value: "{{`{{workflow.parameters.size}}`}}"
+            - name: memory
+              value: "{{`{{workflow.parameters.memory}}`}}"
