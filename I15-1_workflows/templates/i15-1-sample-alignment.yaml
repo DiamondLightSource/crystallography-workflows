@@ -22,6 +22,11 @@ spec:
           configMapKeyRef:
             name: sessionspaces
             key: data_directory
+  volumes:
+  - name: session
+    hostPath:
+      path: "{{`{{ workflow.parameters.visitdir }}`}}"
+      type: Directory
   volumeClaimTemplates:
   - metadata:
       name: tmpdir
