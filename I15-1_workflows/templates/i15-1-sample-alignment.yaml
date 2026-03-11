@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: i15-1-eiger
+  name: i15-1-sample-alignment
   labels:
     workflows.diamond.ac.uk/science-group-crystallography: "true"
   annotations:
-    workflows.argoproj.io/title: i15-1-sample_alignmentment
+    workflows.argoproj.io/title: i15-1-sample-alignment
     workflows.argoproj.io/description: |
       This is a test that Runs a numpy script in a python container.
       The script finds the normal of the dot product of two random matrices.
