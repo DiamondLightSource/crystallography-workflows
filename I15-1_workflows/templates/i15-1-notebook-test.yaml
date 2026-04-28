@@ -6,13 +6,14 @@ metadata:
 spec:
   entrypoint: notebook
   arguments:
-    - name: processed_file
-      value: i15-1-81948-pe2AD-ae484995-b6fa-440b-8210-e00eb1e1ee06.pe2AD.bragg.nxs
-    - name: visitdir
-      valueFrom:
-        configMapKeyRef:
-          name: sessionspaces
-          key: data_directory
+    parameters:
+      - name: processed_file
+        value: i15-1-81948-pe2AD-ae484995-b6fa-440b-8210-e00eb1e1ee06.pe2AD.bragg.nxs
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
 
   volumeClaimTemplates:
     - metadata:
@@ -66,9 +67,29 @@ spec:
       volumeMounts:
         - name: tmp
           mountPath: /tmp
-  outputs:
-    artifacts:
-    - name: diffrac-image
-      path: /tmp/result_image.png
-      archive:
-        none: {} 
+        - name: session
+          mountPath: /dls/session
+    volumes:
+    - name: session
+      hostPath:
+        path: "{{`{{ workflow.parameters.visitdir }}`}}"
+        type: Directory
+
+    outputs:
+      artifacts:
+        - name: diffrac-image
+          path: /tmp/result_image.png
+          archive:
+            none: {} 
+  - name: notebook
+    dag:
+      tasks:
+        - name: hostpath-mount-example
+          template: hostpath-mount-example
+
+        - name: mount-files
+          template: mount-files
+
+        - name: convert-notebook
+          template: convert-notebook
+          dependencies: [hostpath-mount-example, mount-files]
