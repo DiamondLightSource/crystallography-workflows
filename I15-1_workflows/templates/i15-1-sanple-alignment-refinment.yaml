@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: i15-1-sanple-alignment-refinment
+  name: i15-1-sample-alignment-refinment
   labels:
     workflows.diamond.ac.uk/science-group-crystallography: "true"
   annotations:
-    workflows.argoproj.io/title: i15-1-sanple-alignment-refinment
+    workflows.argoproj.io/title: i15-1-sample-alignment-refinment
     workflows.argoproj.io/description: |
       This takes a nxs filnumber and a datset path, and sums the data, fits the data and returns the sample alignment centre. Results are published to rabbitmq and saved to disk
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
@@ -37,7 +37,7 @@ spec:
           storage: 1Gi
       storageClassName: netapp
   templates:
-    - name: i15-1-sanple-alignment-refinment
+    - name: i15-1-sample-alignment-refinment
       inputs:
         parameters:
           - name: filenumber
@@ -92,8 +92,8 @@ spec:
     - name: workflow-entry
       dag:
         tasks:
-        - name: i15-1-sanple-alignment-refinment
-          template: i15-1-sanple-alignment-refinment
+        - name: i15-1-sample-alignment-refinment
+          template: i15-1-sample-alignment-refinment
           dependencies: []
           arguments:
             parameters:
