@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: i15-1-sample-alignment
+  name: i15-1-test-gaussian
   labels:
     workflows.diamond.ac.uk/science-group-crystallography: "true"
   annotations:
-    workflows.argoproj.io/title: i15-1-sample-alignment
+    workflows.argoproj.io/title: i15-1-test-gaussian
     workflows.argoproj.io/description: |
       This is a test that creates a gaussian and fits it for sample alignment
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
@@ -13,10 +13,10 @@ spec:
   entrypoint: workflow-entry
   arguments:
     parameters:
-      - name: size
+      - name: centre
         value: 5
-      - name: memory
-        value: 20Gi
+      - name: amplitude
+        value: 20
       - name: visitdir
         valueFrom:
           configMapKeyRef:
@@ -37,13 +37,13 @@ spec:
           storage: 1Gi
       storageClassName: netapp
   templates:
-    - name: i15-1-sample-alignment
+    - name: i15-1-test-gaussian
       inputs:
         parameters:
-          - name: size
-          - name: memory
+          - name: centre
+          - name: amplitude
       script:
-        image: ghcr.io/diamondlightsource/xrpd-toolbox:test-rjcd
+        image: docker pull ghcr.io/diamondlightsource/xrpd-toolbox:latest
         volumeMounts:
         - name: tmpdir
           mountPath: /tmp
@@ -58,34 +58,22 @@ spec:
           - name: OMP_NUM_THREADS
             value: "1"
         source: |
-          from collections.abc import Collection
-
           import numpy as np
           import time
           from scipy.optimize import curve_fit
           import matplotlib.pyplot as plt
           import os
 
+          from xrpd_toolbox.fit_engine.peaks import gaussian
 
-          def gaussian(
-              x: np.ndarray, cen: int | float, amp: int | float, fwhm: int | float
-          ) -> np.ndarray:
-              """1-d gaussian: gaussian(x, amp, cen, fwhm)"""
+          amplitude = int("{{`{{ inputs.parameters.amplitude }}`}}")
+          centre = int("{{`{{ inputs.parameters.centre }}`}}")
 
-              return (amp / (np.sqrt(2 * np.pi) * fwhm)) * np.exp(
-                  -((x - cen) ** 2) / (2 * fwhm**2)
-              )
-
-
-          centre = int("{{`{{ inputs.parameters.size }}`}}")
-
-
-          x = np.linspace(0,10,100)
-          y = gaussian(x, centre, 10, 0.5)
+          x = np.linspace(centre-10,centre+10,100)
+          y = gaussian(x, amplitude, centre, 0.5)
           y_noisy = y + np.random.rand(y.shape[-1]) / 5
 
           print(y_noisy)
-
 
           visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
           filepath_out = os.path.join(visit_dir, "gaussian.png")
@@ -100,20 +88,20 @@ spec:
           resources:
             requests:
               cpu: "1"
-              memory: "{{`{{ inputs.parameters.memory }}`}}"
+              memory: 12 #"{{`{{ inputs.parameters.memory }}`}}"
             limits:
               cpu: "1"
-              memory: "{{`{{ inputs.parameters.memory }}`}}"
+              memory: 20 #"{{`{{ inputs.parameters.memory }}`}}"
 
     - name: workflow-entry
       dag:
         tasks:
-        - name: i15-1-sample-alignment
-          template: i15-1-sample-alignment
+        - name: i15-1-test-gaussian
+          template: i15-1-test-gaussian
           dependencies: []
           arguments:
             parameters:
-            - name: size
-              value: "{{`{{workflow.parameters.size}}`}}"
-            - name: memory
-              value: "{{`{{workflow.parameters.memory}}`}}"
+            - name: centre
+              value: "{{`{{workflow.parameters.centre}}`}}"
+            - name: amplitude
+              value: "{{`{{workflow.parameters.amplitude}}`}}"

@@ -1,0 +1,103 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i15-1-sanple-alignment-refinment
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i15-1-sanple-alignment-refinment
+    workflows.argoproj.io/description: |
+      This takes a nxs filnumber and a datset path, and sums the data, fits the data and returns the sample alignment centre. Results are published to rabbitmq and saved to disk
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: filenumber
+        value: 12345
+      - name: dataset_path
+        value: pe2AD
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
+  volumes:
+  - name: session
+    hostPath:
+      path: "{{`{{ workflow.parameters.visitdir }}`}}"
+      type: Directory
+  volumeClaimTemplates:
+  - metadata:
+      name: tmpdir
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: netapp
+  templates:
+    - name: i15-1-sanple-alignment-refinment
+      inputs:
+        parameters:
+          - name: filenumber
+          - name: dataset_path
+      script:
+        image: docker pull ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        command: ["python"]
+        env:
+          - name: MKL_NUM_THREADS
+            value: "1"
+          - name: NUMEXPR_NUM_THREADS
+            value: "1"
+          - name: OMP_NUM_THREADS
+            value: "1"
+        source: |
+
+          import os
+          import time
+          import numpy as np
+          import matplotlib.pyplot as plt
+          from xrpd_toolbox.i15_1.sample_alignment import sample_alignment
+
+
+          filenumber_int = int("{{`{{ inputs.parameters.filenumber }}`}}")
+          filenumber_str = str("{{`{{ inputs.parameters.filenumber }}`}}")
+
+          visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
+
+          filepath = os.path.join(visit_dir, filenumber_str + ".nxs")
+
+
+          sample_alignment_results = sample_alignment(filepath=filepath, dataset_path=dataset_path, beamline="i15-1", save=True) #returns a basemodel
+          print(sample_filenumber_result.model_dump_json())
+
+
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "1"
+              memory: 12 #"{{`{{ inputs.parameters.memory }}`}}"
+            limits:
+              cpu: "1"
+              memory: 20 #"{{`{{ inputs.parameters.memory }}`}}"
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: i15-1-sanple-alignment-refinment
+          template: i15-1-sanple-alignment-refinment
+          dependencies: []
+          arguments:
+            parameters:
+            - name: filenumber
+              value: "{{`{{workflow.parameters.filenumber}}`}}"
+            - name: dataset_path
+              value: "{{`{{workflow.parameters.dataset_path}}`}}"
