@@ -16,7 +16,7 @@ spec:
       - name: filenumber
         value: 12345
       - name: dataset_path
-        value: pe2AD
+        value: /entry/pe2AD/data
       - name: visitdir
         valueFrom:
           configMapKeyRef:
@@ -61,21 +61,26 @@ spec:
 
           import os
           import time
-          import numpy as np
-          import matplotlib.pyplot as plt
-          from xrpd_toolbox.i15_1.sample_alignment import sample_alignment
 
+          import matplotlib.pyplot as plt
+          import numpy as np
+
+          from xrpd_toolbox.i15_1.sample_alignment import sample_alignment
 
           filenumber_int = int("{{`{{ inputs.parameters.filenumber }}`}}")
           filenumber_str = str("{{`{{ inputs.parameters.filenumber }}`}}")
 
+          beamline = "i15-1"
+          filename = beamline + "-" + filenumber_str + ".nxs"
+
           visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
+          dataset_path = "{{`{{ workflow.parameters.dataset_path }}`}}"
 
-          filepath = os.path.join(visit_dir, filenumber_str + ".nxs")
+          filepath = os.path.join(visit_dir, filename)
 
-
-          sample_alignment_results = sample_alignment(filepath=filepath, dataset_path=dataset_path, beamline="i15-1", save=True) #returns a basemodel
+          sample_filenumber_result = sample_alignment(filepath=filepath, dataset_path=dataset_path, beamline=beamline, save=True)  # returns a basemodel
           print(sample_filenumber_result.model_dump_json())
+
 
 
       podSpecPatch: |
