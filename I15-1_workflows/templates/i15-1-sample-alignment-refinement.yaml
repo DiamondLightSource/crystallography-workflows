@@ -43,7 +43,7 @@ spec:
           - name: filenumber
           - name: dataset_path
       script:
-        image: docker pull ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
         volumeMounts:
         - name: tmpdir
           mountPath: /tmp
