@@ -89,10 +89,10 @@ spec:
           resources:
             requests:
               cpu: "1"
-              memory: "12"
+              memory: 10Gi
             limits:
               cpu: "1"
-              memory: "20"
+              memory: 20Gi
 
     - name: workflow-entry
       dag:
