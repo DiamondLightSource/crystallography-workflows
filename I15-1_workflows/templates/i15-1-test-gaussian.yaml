@@ -88,10 +88,10 @@ spec:
           resources:
             requests:
               cpu: "1"
-              memory: 12 #"{{`{{ inputs.parameters.memory }}`}}"
+              memory: "12"
             limits:
               cpu: "1"
-              memory: 20 #"{{`{{ inputs.parameters.memory }}`}}"
+              memory: "20"
 
     - name: workflow-entry
       dag:
