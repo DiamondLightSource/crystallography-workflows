@@ -7,13 +7,7 @@ Also see: https://github.com/DiamondLightSource/XRPD-Toolbox
 
 Navigate to https://workflows.diamond.ac.uk/templates and then filter by Crystallography
 
-
-Go to: https://argo-cd.workflows.diamond.ac.uk/applications/argocd/i15-1-group
-
-Also see: https://github.com/DiamondLightSource/XRPD-Toolbox 
-
-Navigate to https://workflows.diamond.ac.uk/templates and then filter by Crystallography
-
+# pdfgetx3
 
 If the workflows uses the pdfgetx3 package, a container image should already be available, if you need to build a new images go to gitlab, and clone the repo that contains the pdfgetx3pod repo. 
 
