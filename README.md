@@ -14,5 +14,7 @@ If the workflows uses the pdfgetx3 package, a container image should already be 
 The pdfgetx3 is not freely distributed and so cannot be pip installed. But is free for academic and non-commercial use. The python .whl's are available once a license is obtained. The whl's and everything required to build the pdfgetx3pod is in the gitlab repo. If new wh;'s are avaialble, download then through the normal mean, put them in the repo. Then do this to build the container image:
 
 podman login ghcr.io – YOUR-GITHUB-USERNAME
-podman build -t ghcr.io/diamondlightsource/crystallography-workflows:NAME .
+
+podman build -t ghcr.io/diamondlightsource/crystallography-workflows:NAME
+
 podman push ghcr.io/diamondlightsource/crystallography-workflowsx:NAME
