@@ -1,4 +1,11 @@
-<img width="468" height="100" alt="image" src="https://github.com/user-attachments/assets/d927dfbc-1c0c-4f45-b0c4-01559f043489" /># Crystallography Workflows
+# Crystallography Workflows
+
+
+Go to: https://argo-cd.workflows.diamond.ac.uk/applications/argocd/i15-1-group
+
+Also see: https://github.com/DiamondLightSource/XRPD-Toolbox 
+
+Navigate to https://workflows.diamond.ac.uk/templates and then filter by Crystallography
 
 
 Go to: https://argo-cd.workflows.diamond.ac.uk/applications/argocd/i15-1-group
