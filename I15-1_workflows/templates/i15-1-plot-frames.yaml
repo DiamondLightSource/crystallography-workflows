@@ -7,9 +7,9 @@ metadata:
   annotations:
     workflows.argoproj.io/title: plot-frames
     workflows.argoproj.io/description: |
-      This takes a nxs filenumber and a dataset path, sums and normalises the frames,
-      and plots them. The plots are saved to disk alongside the raw data, and a
-      combined preview image is published as a workflow artifact.
+      This takes a nxs filenumber, sums and normalises the frames, and plots them.
+      The plots are saved to disk alongside the raw data, and a combined preview
+      image is published as a workflow artifact.
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
 spec:
   entrypoint: workflow-entry
@@ -17,8 +17,6 @@ spec:
     parameters:
       - name: filenumber
         value: "12345"
-      - name: dataset_path
-        value: /entry/pe2AD/data
       - name: visitdir
         valueFrom:
           configMapKeyRef:
@@ -43,7 +41,6 @@ spec:
       inputs:
         parameters:
           - name: filenumber
-          - name: dataset_path
       script:
         image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
         volumeMounts:
@@ -76,7 +73,6 @@ spec:
           beamline = "i15-1"
           filename = f"{beamline}-{filenumber_str}.nxs"
           visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
-          dataset_path = "{{`{{ inputs.parameters.dataset_path }}`}}"
           filepath = os.path.join(visit_dir, filename)
 
           wait_for_finished_file(filepath)
@@ -149,5 +145,3 @@ spec:
             parameters:
             - name: filenumber
               value: "{{`{{workflow.parameters.filenumber}}`}}"
-            - name: dataset_path
-              value: "{{`{{workflow.parameters.dataset_path}}`}}"
