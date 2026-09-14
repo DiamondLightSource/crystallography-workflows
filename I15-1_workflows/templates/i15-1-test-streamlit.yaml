@@ -1,0 +1,120 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i15-1-test-streamlit
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i15-1-test-streamlit
+    workflows.argoproj.io/description: |
+      This is a test that makes a processed nexus file and tells streamlit about it
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: scan_number
+        value: 98478
+      - name: comment
+        value: this is a comment
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
+  volumes:
+  - name: session
+    hostPath:
+      path: "{{`{{ workflow.parameters.visitdir }}`}}"
+      type: Directory
+  volumeClaimTemplates:
+  - metadata:
+      name: tmpdir
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: netapp
+  templates:
+    - name: i15-1-test-streamlit
+      inputs:
+        parameters:
+          - name: scan_number
+          - name: comment
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        command: ["python"]
+        env:
+          - name: MKL_NUM_THREADS
+            value: "1"
+          - name: NUMEXPR_NUM_THREADS
+            value: "1"
+          - name: OMP_NUM_THREADS
+            value: "1"
+        source: |
+          from pathlib import Path
+          import h5py
+          import uuid
+          import numpy as np
+
+          # parse the input parameters
+          scan_number = int("{{`{{ inputs.parameters.scan_number }}`}}")
+          visit_dir = Path("{{`{{ workflow.parameters.visitdir }}`}}")
+          comment = "{{`{{ inputs.parameters.comment }}`}}"
+
+          # construct the file paths
+          nexus_file_path = visit_dir / f"i15-1-{scan_number}.nxs"
+          out_path = visit_dir / "processing" / f"i15-1-{scan_number}-streamlit-{uuid.uuid4()}.nxs"
+          the_log_file = visit_dir / "processing" / "scan.log"
+
+          # open the file and extract some data
+          with h5py.File(nexus_file_path, "r") as f:
+              eiger = f["entry/fastcs_eiger/data"][()]
+              tth = f["entry/i0/tth"][()]
+
+          # do some stupid processing
+          tth = np.round(tth,1)
+          unique_tth_values = sorted(set(tth))
+          summed_eiger = np.zeros((len(unique_tth_values), *eiger.shape[-2:]))
+          for i, unique_tth_value in enumerate(unique_tth_values):
+              x = np.where(tth == unique_tth_value)
+              summed_eiger[i,:] = eiger[x].sum(0)
+          
+          # create the processed nexus file
+          with h5py.File(out_path, "w") as f:
+              eiger = f.create_dataset("eiger", data=summed_eiger)
+              tth = f.create_dataset("tth", data=unique_tth_values)
+
+          # write the log file
+          with open(the_log_file, "a") as f:
+              f.write(f"{nexus_file_path.name},{out_path},pdf,{comment}\n")
+          
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "1"
+              memory: 10Gi
+            limits:
+              cpu: "1"
+              memory: 20Gi
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: i15-1-test-streamlit
+          template: i15-1-test-streamlit
+          dependencies: []
+          arguments:
+            parameters:
+            - name: centre
+              value: "{{`{{workflow.parameters.scan_number}}`}}"
+            - name: amplitude
+              value: "{{`{{workflow.parameters.comment}}`}}"
