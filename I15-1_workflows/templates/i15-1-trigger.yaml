@@ -5,6 +5,9 @@ metadata:
   labels:
     workflows.diamond.ac.uk/source: message-bus
     workflows.diamond.ac.uk/beamline: i15-1
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
 spec:
   eventName: i15-1-message
   workflow:
