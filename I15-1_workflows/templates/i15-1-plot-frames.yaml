@@ -5,7 +5,7 @@ metadata:
   labels:
     workflows.diamond.ac.uk/science-group-crystallography: "true"
   annotations:
-    workflows.argoproj.io/title: plot_frames
+    workflows.argoproj.io/title: plot-frames
     workflows.argoproj.io/description: |
       This takes a nxs filenumber and a dataset path, sums and normalises the frames,
       and plots them. The plots are saved to disk alongside the raw data, and a
@@ -117,14 +117,14 @@ spec:
           fig.suptitle(filename)
           fig.tight_layout()
 
-          artifact_path = "/tmp/plot_frames.png"
+          artifact_path = "/tmp/plot-frames.png"
           fig.savefig(artifact_path)
           print(f"Saved combined preview to {artifact_path}")
 
       outputs:
         artifacts:
           - name: plot-frames
-            path: /tmp/plot_frames.png
+            path: /tmp/plot-frames.png
             archive:
               none: {}
 
