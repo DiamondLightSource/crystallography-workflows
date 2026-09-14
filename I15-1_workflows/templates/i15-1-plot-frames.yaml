@@ -7,9 +7,9 @@ metadata:
   annotations:
     workflows.argoproj.io/title: plot-frames
     workflows.argoproj.io/description: |
-      This takes a nxs filenumber, sums and normalises the frames, and plots them.
-      The plots are saved to disk alongside the raw data, and a combined preview
-      image is published as a workflow artifact.
+      This takes a nxs filenumber, sums and normalises the frames, and plots
+      each one. Every plot is saved to disk alongside the raw data, and
+      published as its own individual workflow artifact.
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
 spec:
   entrypoint: workflow-entry
@@ -37,7 +37,7 @@ spec:
           storage: 1Gi
       storageClassName: netapp
   templates:
-    - name: i15-1-plot-frames
+    - name: sum-and-save-frames
       inputs:
         parameters:
           - name: filenumber
@@ -58,12 +58,10 @@ spec:
             value: "1"
         source: |
 
-          import math
+          import json
           import os
 
-          import matplotlib
-          matplotlib.use("Agg")
-          import matplotlib.pyplot as plt
+          import numpy as np
 
           from xrpd_toolbox.i15_1.eiger_500k import EigerDataLoader
           from xrpd_toolbox.utils.utils import wait_for_finished_file
@@ -82,47 +80,22 @@ spec:
           n_frames = len(frames)
           print(f"Got {n_frames} frame(s) from {filepath}")
 
-          # save each frame individually alongside the raw data, as before
+          # stash the raw frames on the shared tmp volume so that a separate
+          # plot-frame task can be fanned out per frame, each producing its
+          # own individual artifact
+          frame_dir = "/tmp/frames"
+          os.makedirs(frame_dir, exist_ok=True)
           for n, frame in enumerate(frames):
-              output_filename = f"{beamline}-{filenumber_str}_{n}.png"
-              save_filepath = os.path.join(visit_dir, output_filename)
-              plt.figure()
-              plt.imshow(frame)
-              plt.colorbar()
-              plt.title(output_filename)
-              plt.savefig(save_filepath)
-              plt.close()
-              print(f"Saved frame {n} to {save_filepath}")
+              np.save(os.path.join(frame_dir, f"frame_{n}.npy"), frame)
 
-          # also build a single combined figure so the plots can be
-          # previewed directly as a workflow artifact, without needing to
-          # download and open each individual frame
-          n_cols = min(4, n_frames) or 1
-          n_rows = math.ceil(n_frames / n_cols) or 1
-          fig, axes = plt.subplots(
-              n_rows, n_cols, figsize=(4 * n_cols, 4 * n_rows), squeeze=False
-          )
-          for n, frame in enumerate(frames):
-              ax = axes[n // n_cols][n % n_cols]
-              im = ax.imshow(frame)
-              ax.set_title(f"frame {n}")
-              fig.colorbar(im, ax=ax)
-          for n in range(n_frames, n_rows * n_cols):
-              axes[n // n_cols][n % n_cols].axis("off")
-
-          fig.suptitle(filename)
-          fig.tight_layout()
-
-          artifact_path = "/tmp/plot-frames.png"
-          fig.savefig(artifact_path)
-          print(f"Saved combined preview to {artifact_path}")
+          with open("/tmp/frame-indices.json", "w") as f:
+              json.dump(list(range(n_frames)), f)
 
       outputs:
-        artifacts:
-          - name: plot-frames
-            path: /tmp/plot-frames.png
-            archive:
-              none: {}
+        parameters:
+          - name: frame-indices
+            valueFrom:
+              path: /tmp/frame-indices.json
 
       podSpecPatch: |
         containers:
@@ -135,13 +108,74 @@ spec:
               cpu: "1"
               memory: 20Gi
 
+    - name: plot-frame
+      inputs:
+        parameters:
+          - name: filenumber
+          - name: frame
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        command: ["python"]
+        source: |
+
+          import os
+
+          import matplotlib
+          matplotlib.use("Agg")
+          import matplotlib.pyplot as plt
+          import numpy as np
+
+          filenumber_str = "{{`{{ inputs.parameters.filenumber }}`}}"
+          n = int("{{`{{ inputs.parameters.frame }}`}}")
+
+          beamline = "i15-1"
+          visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
+
+          frame = np.load(f"/tmp/frames/frame_{n}.npy")
+
+          output_filename = f"{beamline}-{filenumber_str}_{n}.png"
+          artifact_path = f"/tmp/frames/frame_{n}.png"
+          save_filepath = os.path.join(visit_dir, output_filename)
+
+          plt.figure()
+          plt.imshow(frame)
+          plt.colorbar()
+          plt.title(output_filename)
+          plt.savefig(artifact_path)
+          plt.savefig(save_filepath)
+          plt.close()
+          print(f"Saved frame {n} to {save_filepath}")
+
+      outputs:
+        artifacts:
+          - name: "plot-frames-{{`{{inputs.parameters.frame}}`}}"
+            path: "/tmp/frames/frame_{{`{{inputs.parameters.frame}}`}}.png"
+            archive:
+              none: {}
+
     - name: workflow-entry
       dag:
         tasks:
-        - name: i15-1-plot-frames
-          template: i15-1-plot-frames
+        - name: sum-and-save-frames
+          template: sum-and-save-frames
           dependencies: []
           arguments:
             parameters:
             - name: filenumber
               value: "{{`{{workflow.parameters.filenumber}}`}}"
+
+        - name: plot-frame
+          template: plot-frame
+          dependencies: [sum-and-save-frames]
+          arguments:
+            parameters:
+            - name: filenumber
+              value: "{{`{{workflow.parameters.filenumber}}`}}"
+            - name: frame
+              value: "{{`{{item}}`}}"
+          withParam: "{{`{{tasks.sum-and-save-frames.outputs.parameters.frame-indices}}`}}"
