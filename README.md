@@ -7,11 +7,9 @@ Also see: https://github.com/DiamondLightSource/XRPD-Toolbox
 
 Navigate to https://workflows.diamond.ac.uk/templates and then filter by Crystallography
 
-# pdfgetx3
+# manually building a container images
 
-If the workflows uses the pdfgetx3 package, a container image should already be available, if you need to build a new images go to gitlab, and clone the repo that contains the pdfgetx3pod repo. 
-
-The pdfgetx3 is not freely distributed and so cannot be pip installed. But is free for academic and non-commercial use. The python .whl's are available once a license is obtained. The whl's and everything required to build the pdfgetx3pod is in the gitlab repo. If new wh;'s are avaialble, download then through the normal mean, put them in the repo. Then do this to build the container image:
+You must first commit your changes to a repo. Then do this to build the container image:
 
 ```bash
 
