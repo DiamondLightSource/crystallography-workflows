@@ -114,7 +114,7 @@ spec:
           dependencies: []
           arguments:
             parameters:
-            - name: centre
+            - name: scan_number
               value: "{{`{{workflow.parameters.scan_number}}`}}"
-            - name: amplitude
+            - name: comment
               value: "{{`{{workflow.parameters.comment}}`}}"
