@@ -77,14 +77,12 @@ spec:
 
           wait_for_finished_file(filepath)
 
-          eiger_data = EigerDataLoader(filepath)
+          eiger_data = EigerDataLoader(nexus_filepath)
 
           frames = eiger_data.get_summed_and_normalised_frames()
 
-          for n,frame in enumerate(frames):
-
+          for frame in frames:
               output_filename = beamline + "-" + filenumber_str + "_" + str(n) +.png
-
               save_filepath = os.path.join(visit_dir, output_filename)
               plt.imshow(frame)
               plt.savefig(save_filepath)
