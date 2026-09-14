@@ -5,7 +5,7 @@ metadata:
   labels:
     workflows.diamond.ac.uk/science-group-crystallography: "true"
   annotations:
-    workflows.argoproj.io/title: plot-frames
+    workflows.argoproj.io/title: i15-1-plot-frames
     workflows.argoproj.io/description: |
       This takes a nxs filenumber, sums and normalises the frames, and plots
       each one. Every plot is saved to disk alongside the raw data, and
