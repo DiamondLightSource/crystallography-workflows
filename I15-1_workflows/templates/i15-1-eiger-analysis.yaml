@@ -1,0 +1,88 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i15-1-eiger-analysis
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i15-1-eiger-analysis
+    workflows.argoproj.io/description: |
+      This takes a nxs filnumber and a datset path, and sums the data, fits the data and returns the sample alignment centre. Results are published to rabbitmq and saved to disk
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: filenumber
+        value: "12345"
+  volumes:
+  - name: session
+    hostPath:
+      path: "{{`{{ workflow.parameters.visitdir }}`}}"
+      type: Directory
+  volumeClaimTemplates:
+  - metadata:
+      name: tmpdir
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: netapp
+  templates:
+    - name: i15-1-eiger-analysis
+      inputs:
+        parameters:
+          - name: filenumber
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        command: ["python"]
+        env:
+          - name: MKL_NUM_THREADS
+            value: "1"
+          - name: NUMEXPR_NUM_THREADS
+            value: "1"
+          - name: OMP_NUM_THREADS
+            value: "1"
+        source: |
+
+          from xrpd_toolbox.i15_1.eiger_analysis import run_eiger_analysis
+          from pathlib import Path
+          
+          filenumber_str = str("{{`{{ inputs.parameters.filenumber }}`}}")
+          visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
+
+          beamline = "i15-1"
+          filename = beamline + "-" + filenumber_str + ".nxs"
+
+          nexus_filepath = visit_dir / filename
+
+          run_eiger_analysis(nexus_filepath=str(nexus_filepath))
+
+
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "1"
+              memory: 10Gi
+            limits:
+              cpu: "1"
+              memory: 20Gi
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: i15-1-eiger-analysis
+          template: i15-1-eiger-analysis
+          dependencies: []
+          arguments:
+            parameters:
+            - name: filenumber
+              value: "{{`{{workflow.parameters.filenumber}}`}}"
