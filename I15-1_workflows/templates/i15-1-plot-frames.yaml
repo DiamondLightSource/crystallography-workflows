@@ -122,9 +122,8 @@ spec:
           mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
         command: ["python"]
         source: |
-
           import os
-
+          from pathlib import Path
           import matplotlib
           matplotlib.use("Agg")
           import matplotlib.pyplot as plt
@@ -140,7 +139,11 @@ spec:
 
           output_filename = f"{beamline}-{filenumber_str}_{n}.png"
           artifact_path = f"/tmp/frames/frame_{n}.png"
-          save_filepath = os.path.join(visit_dir, output_filename)
+
+          save_folder = Path(visit_dir) / "processed" / f"{beamline}-{filenumber_str}"
+          save_folder.mkdir(parents=True, exist_ok=True)
+
+          save_filepath = str(save_folder / output_filename)
 
           plt.figure()
           plt.imshow(frame)
@@ -150,6 +153,7 @@ spec:
           plt.savefig(save_filepath)
           plt.close()
           print(f"Saved frame {n} to {save_filepath}")
+
 
       outputs:
         artifacts:
