@@ -7,7 +7,7 @@ metadata:
   annotations:
     workflows.argoproj.io/title: i15-1-sample-alignment-refinement
     workflows.argoproj.io/description: |
-      This takes a nxs filnumber and a datset path, and sums the data, fits the data and returns the sample alignment centre. Results are published to rabbitmq and saved to disk
+      This takes a nxs filenumber and a datset path, and sums the data, fits the data and returns the sample alignment centre. Results are published to rabbitmq and saved to disk
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
 spec:
   entrypoint: workflow-entry
