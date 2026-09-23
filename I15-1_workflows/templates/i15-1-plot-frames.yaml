@@ -76,6 +76,8 @@ spec:
           wait_for_finished_file(filepath)
 
           eiger_data = EigerDataLoader(filepath)
+          mask = eiger_data.get_mask(as_nan=True)
+
           frames = eiger_data.get_summed_and_normalised_frames()
           n_frames = len(frames)
           print(f"Got {n_frames} frame(s) from {filepath}")
@@ -86,6 +88,7 @@ spec:
           frame_dir = "/tmp/frames"
           os.makedirs(frame_dir, exist_ok=True)
           for n, frame in enumerate(frames):
+              frame = frame * mask
               np.save(os.path.join(frame_dir, f"frame_{n}.npy"), frame)
 
           with open("/tmp/frame-indices.json", "w") as f:
