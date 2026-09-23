@@ -61,7 +61,7 @@ spec:
           beamline = "i15-1"
           filename = beamline + "-" + filenumber_str + ".nxs"
 
-          nexus_filepath = visit_dir / filename
+          nexus_filepath = Path(visit_dir) / filename
 
           run_eiger_analysis(nexus_filepath=str(nexus_filepath))
 
