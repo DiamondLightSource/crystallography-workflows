@@ -79,6 +79,7 @@ spec:
           mask = eiger_data.get_mask(as_nan=True)
 
           frames = eiger_data.get_summed_and_normalised_frames()
+          tth_positions = eiger_data.get_unique_tth_positions()
           n_frames = len(frames)
           print(f"Got {n_frames} frame(s) from {filepath}")
 
@@ -91,8 +92,12 @@ spec:
               frame = frame * mask
               np.save(os.path.join(frame_dir, f"frame_{n}.npy"), frame)
 
+          frame_items = [
+              {"index": n, "tth": float(tth)}
+              for n, tth in enumerate(tth_positions)
+          ]
           with open("/tmp/frame-indices.json", "w") as f:
-              json.dump(list(range(n_frames)), f)
+              json.dump(frame_items, f)
 
       outputs:
         parameters:
@@ -116,6 +121,7 @@ spec:
         parameters:
           - name: filenumber
           - name: frame
+          - name: tth
       script:
         image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
         volumeMounts:
@@ -134,13 +140,16 @@ spec:
 
           filenumber_str = "{{`{{ inputs.parameters.filenumber }}`}}"
           n = int("{{`{{ inputs.parameters.frame }}`}}")
+          tth = float("{{`{{ inputs.parameters.tth }}`}}")
 
           beamline = "i15-1"
           visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
 
           frame = np.load(f"/tmp/frames/frame_{n}.npy")
 
-          output_filename = f"{beamline}-{filenumber_str}_{n}.png"
+          tth_display = f"{tth:.3f}"
+          tth_file = tth_display.replace(".", "_")
+          output_filename = f"{beamline}-{filenumber_str}_tth_{tth_file}.png"
           artifact_path = f"/tmp/frames/frame_{n}.png"
 
           save_folder = Path(visit_dir) / "processed" / f"{beamline}-{filenumber_str}"
@@ -151,11 +160,11 @@ spec:
           plt.figure()
           plt.imshow(frame)
           plt.colorbar()
-          plt.title(output_filename)
+          plt.title(f"{beamline}-{filenumber_str} tth={tth_display}")
           plt.savefig(artifact_path)
           plt.savefig(save_filepath)
           plt.close()
-          print(f"Saved frame {n} to {save_filepath}")
+          print(f"Saved frame {n} (tth={tth_display}) to {save_filepath}")
 
 
       outputs:
@@ -184,5 +193,7 @@ spec:
             - name: filenumber
               value: "{{`{{workflow.parameters.filenumber}}`}}"
             - name: frame
-              value: "{{`{{item}}`}}"
+              value: "{{`{{item.index}}`}}"
+            - name: tth
+              value: "{{`{{item.tth}}`}}"
           withParam: "{{`{{tasks.sum-and-save-frames.outputs.parameters.frame-indices}}`}}"
