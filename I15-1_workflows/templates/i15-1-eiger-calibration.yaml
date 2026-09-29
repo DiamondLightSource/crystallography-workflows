@@ -1,0 +1,192 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i15-1-eiger-calibration
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i15-1-eiger-calibration
+    workflows.argoproj.io/description: |
+      This takes a nxs filenumber and runs the processing required for the type of scan. 
+      This should be done at the end of every scan.
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: filenumber
+        value: "12345"
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
+      - name: calibrant_name
+        value: "None"
+        enum:
+          - "W"
+          - "Si"
+          - "LaB6"
+          - "None"
+  volumes:
+  - name: session
+    hostPath:
+      path: "{{`{{ workflow.parameters.visitdir }}`}}"
+      type: Directory
+  volumeClaimTemplates:
+  - metadata:
+      name: tmpdir
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: netapp
+  templates:
+    - name: i15-1-eiger-calibration
+      inputs:
+        parameters:
+          - name: filenumber
+          - name: calibrant_name
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        command: ["python"]
+        env:
+          - name: MKL_NUM_THREADS
+            value: "1"
+          - name: NUMEXPR_NUM_THREADS
+            value: "1"
+          - name: OMP_NUM_THREADS
+            value: "1"
+        source: |
+
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          from xrpd_toolbox.i15_1.eiger_analysis import do_eiger_goniometer_calibration, get_calibation_fit_images
+
+          filenumber_str = str("{{`{{ inputs.parameters.filenumber }}`}}")
+          visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
+          calibrant_name_str = "{{`{{ inputs.parameters.calibrant_name }}`}}"
+          calibrant_name = None if calibrant_name_str == "None" else calibrant_name_str
+
+          beamline = "i15-1"
+          filename = beamline + "-" + filenumber_str + ".nxs"
+
+          nexus_filepath = Path(visit_dir) / filename
+
+          goniometer_model_json, metadata_json = do_eiger_goniometer_calibration(nexus_filepath=str(nexus_filepath),
+            calibrant_name=calibrant_name,
+            plot_fits=True,
+            show_plots=False,
+            max_rings=[3, 5, 5, 5, 7, 7, 9, 11, 15, 17, 32, 64],
+          )
+
+          list_of_image_paths = get_calibation_fit_images(goniometer_model_json)
+
+          # stash the fit images on the shared tmp volume so that a separate
+          # publish-calibration-image task can be fanned out per image, each
+          # producing its own individual artifact
+          image_dir = "/tmp/calibration_images"
+          os.makedirs(image_dir, exist_ok=True)
+          image_items = []
+          for idx, src_path in enumerate(list_of_image_paths):
+              dest_filename = f"image_{idx}{Path(src_path).suffix}"
+              shutil.copy(src_path, os.path.join(image_dir, dest_filename))
+              image_items.append({"index": idx, "filename": dest_filename})
+
+          with open("/tmp/calibration-image-items.json", "w") as f:
+              json.dump(image_items, f)
+
+      outputs:
+        parameters:
+          - name: calibration-image-items
+            valueFrom:
+              path: /tmp/calibration-image-items.json
+
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "1"
+              memory: 10Gi
+            limits:
+              cpu: "1"
+              memory: 20Gi
+
+    - name: publish-calibration-image
+      inputs:
+        parameters:
+          - name: filenumber
+          - name: index
+          - name: filename
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        command: ["python"]
+        source: |
+          import shutil
+          from pathlib import Path
+
+          filenumber_str = "{{`{{ inputs.parameters.filenumber }}`}}"
+          index = int("{{`{{ inputs.parameters.index }}`}}")
+          filename = "{{`{{ inputs.parameters.filename }}`}}"
+
+          beamline = "i15-1"
+          visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
+
+          src_path = Path("/tmp/calibration_images") / filename
+
+          save_folder = Path(visit_dir) / "processed" / f"{beamline}-{filenumber_str}"
+          save_folder.mkdir(parents=True, exist_ok=True)
+
+          output_filename = f"{beamline}-{filenumber_str}_calibration_fit_{index}{src_path.suffix}"
+          save_filepath = save_folder / output_filename
+
+          shutil.copy(src_path, save_filepath)
+          print(f"Saved calibration fit image {index} to {save_filepath}")
+
+      outputs:
+        artifacts:
+          - name: "calibration-fit-{{`{{inputs.parameters.index}}`}}"
+            path: "/tmp/calibration_images/{{`{{inputs.parameters.filename}}`}}"
+            archive:
+              none: {}
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: i15-1-eiger-calibration
+          template: i15-1-eiger-calibration
+          dependencies: []
+          arguments:
+            parameters:
+            - name: filenumber
+              value: "{{`{{workflow.parameters.filenumber}}`}}"
+            - name: calibrant_name
+              value: "{{`{{workflow.parameters.calibrant_name}}`}}"
+
+        - name: publish-calibration-image
+          template: publish-calibration-image
+          dependencies: [i15-1-eiger-calibration]
+          arguments:
+            parameters:
+            - name: filenumber
+              value: "{{`{{workflow.parameters.filenumber}}`}}"
+            - name: index
+              value: "{{`{{item.index}}`}}"
+            - name: filename
+              value: "{{`{{item.filename}}`}}"
+          withParam: "{{`{{tasks.i15-1-eiger-calibration.outputs.parameters.calibration-image-items}}`}}"
