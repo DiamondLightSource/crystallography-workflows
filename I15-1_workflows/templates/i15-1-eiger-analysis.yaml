@@ -9,7 +9,7 @@ metadata:
     workflows.argoproj.io/description: |
       This takes a nxs filenumber and runs the processing required for the type of scan. 
       This should be done at the end of every scan.
-    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
 spec:
   entrypoint: workflow-entry
   arguments:

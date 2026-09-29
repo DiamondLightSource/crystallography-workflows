@@ -10,7 +10,7 @@ metadata:
       This takes a nxs filenumber, sums and normalises the frames, and plots
       each one. Every plot is saved to disk alongside the raw data, and
       published as its own individual workflow artifact.
-    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/XRPD-Toolbox"
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
 spec:
   entrypoint: workflow-entry
   arguments:
