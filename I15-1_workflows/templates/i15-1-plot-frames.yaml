@@ -152,7 +152,7 @@ spec:
           output_filename = f"{beamline}-{filenumber_str}_tth_{tth_file}.png"
           artifact_path = f"/tmp/frames/frame_{n}.png"
 
-          save_folder = Path(visit_dir) / "processed" / "images" / f"{beamline}-{filenumber_str}"
+          save_folder = Path(visit_dir) / "processed" / f"{beamline}-{filenumber_str}"
           save_folder.mkdir(parents=True, exist_ok=True)
 
           save_filepath = str(save_folder / output_filename)
