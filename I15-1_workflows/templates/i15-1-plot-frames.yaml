@@ -78,7 +78,7 @@ spec:
           eiger_data = EigerDataLoader(filepath)
           mask = eiger_data.get_mask(as_nan=True)
 
-          frames = eiger_data.get_summed_and_normalised_frames()
+          frames = eiger_data.get_frames()
           tth_positions = eiger_data.get_unique_tth_positions()
           n_frames = len(frames)
           print(f"Got {n_frames} frame(s) from {filepath}")
