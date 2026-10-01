@@ -6,6 +6,7 @@ metadata:
     workflows.diamond.ac.uk/source: message-bus
     workflows.diamond.ac.uk/beamline: i15-1
 spec:
+  lifetime: forever # 5h or 3600s or 60m
   eventName: i15-1-message
   workflow:
     template: i15-1-eiger-analysis
