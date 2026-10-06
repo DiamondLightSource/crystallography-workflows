@@ -68,11 +68,7 @@ spec:
 
           nexus_filepath = Path(visit_dir) / filename
 
-          try:
-              output_xy = run_eiger_analysis(nexus_filepath=str(nexus_filepath))
-          except Exception as e:
-              output_xy = None
-              print(f"run_eiger_analysis failed: {e}")
+          output_xy = run_eiger_analysis(nexus_filepath=str(nexus_filepath))
 
           if output_xy is not None:
               two_theta, intensity = np.loadtxt(str(output_xy), unpack=True)
