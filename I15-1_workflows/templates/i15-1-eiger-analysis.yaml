@@ -54,7 +54,12 @@ spec:
 
           from xrpd_toolbox.i15_1.eiger_analysis import run_eiger_analysis
           from pathlib import Path
-          
+
+          import matplotlib
+          matplotlib.use("Agg")
+          import matplotlib.pyplot as plt
+          import numpy as np
+
           filenumber_str = str("{{`{{ inputs.parameters.filenumber }}`}}")
           visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
 
@@ -63,8 +68,26 @@ spec:
 
           nexus_filepath = Path(visit_dir) / filename
 
-          run_eiger_analysis(nexus_filepath=str(nexus_filepath))
+          output_xy = run_eiger_analysis(nexus_filepath=str(nexus_filepath))
 
+          two_theta, intensity = np.loadtxt(str(output_xy), unpack=True)
+
+          artifact_path = "/tmp/eiger-analysis.png"
+          plt.figure()
+          plt.plot(two_theta, intensity)
+          plt.xlabel("2theta (deg)")
+          plt.ylabel("Intensity (Arb. Units)")
+          plt.title(filenumber_str)
+          plt.savefig(artifact_path)
+          plt.close()
+
+
+      outputs:
+        artifacts:
+          - name: eiger-analysis-plot
+            path: /tmp/eiger-analysis.png
+            archive:
+              none: {}
 
       podSpecPatch: |
         containers:
