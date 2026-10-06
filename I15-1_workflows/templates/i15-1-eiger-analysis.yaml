@@ -71,16 +71,19 @@ spec:
           output_xy = run_eiger_analysis(nexus_filepath=str(nexus_filepath))
 
           if output_xy is not None:
-              two_theta, intensity = np.loadtxt(str(output_xy), unpack=True)
+              try:
+                two_theta, intensity = np.loadtxt(str(output_xy), unpack=True)
 
-              artifact_path = "/tmp/eiger-analysis.png"
-              plt.figure()
-              plt.plot(two_theta, intensity)
-              plt.xlabel("2theta (deg)")
-              plt.ylabel("Intensity (Arb. Units)")
-              plt.title(filenumber_str)
-              plt.savefig(artifact_path)
-              plt.close()
+                artifact_path = "/tmp/eiger-analysis.png"
+                plt.figure()
+                plt.plot(two_theta, intensity)
+                plt.xlabel("2theta (deg)")
+                plt.ylabel("Intensity (Arb. Units)")
+                plt.title(filenumber_str)
+                plt.savefig(artifact_path)
+                plt.close()
+              except Exception as e:
+                print(f"output_xy is not xy? :, {e} skipping plot")
           else:
               print("output_xy is None, skipping plot")
 
