@@ -7,8 +7,7 @@ metadata:
   annotations:
     workflows.argoproj.io/title: i15-1-eiger-calibration
     workflows.argoproj.io/description: |
-      This takes a nxs filenumber and runs the processing required for the type of scan. 
-      This should be done at the end of every scan.
+      This takes a nxs filenumber from i15-1's eiger and runs a calibration, against it.
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
 spec:
   entrypoint: workflow-entry
@@ -89,9 +88,12 @@ spec:
             max_rings=[3, 5, 5, 5, 7, 7, 9, 11, 15, 17, 32, 64],
           )
 
+          with open("/tmp/goniometer_model.json", "w") as f:
+              f.write(goniometer_model_json)
+
           list_of_image_paths = get_calibation_fit_images(goniometer_model_json)
 
-          # stash the fit images on the shared tmp volume so that a separate
+          # move fit images to shared tmp volume so that a separate
           # publish-calibration-image task can be fanned out per image, each
           # producing its own individual artifact
           image_dir = "/tmp/calibration_images"
@@ -110,6 +112,11 @@ spec:
           - name: calibration-image-items
             valueFrom:
               path: /tmp/calibration-image-items.json
+        artifacts:
+          - name: goniometer-model
+            path: /tmp/goniometer_model.json
+            archive:
+              none: {}
 
       podSpecPatch: |
         containers:
