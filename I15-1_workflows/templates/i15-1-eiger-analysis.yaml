@@ -72,19 +72,21 @@ spec:
 
           output_xy = run_eiger_analysis(nexus_filepath=str(nexus_filepath))
 
+          output_name = beamline + "-" + filenumber_str
+
           if output_xy is not None:
-              xy_artifact_path = f"/tmp/{filenumber_str}.xy"
+              xy_artifact_path = f"/tmp/{output_name}.xy"
               shutil.copy(str(output_xy), xy_artifact_path)
 
               try:
                 two_theta, intensity = np.loadtxt(str(output_xy), unpack=True)
 
-                artifact_path = "/tmp/eiger-analysis.png"
+                artifact_path = f"/tmp/{output_name}.png"
                 plt.figure()
                 plt.plot(two_theta, intensity)
                 plt.xlabel("2theta (deg)")
                 plt.ylabel("Intensity (Arb. Units)")
-                plt.title(filenumber_str)
+                plt.title(output_name)
                 plt.savefig(artifact_path)
                 plt.close()
               except Exception as e:
@@ -96,12 +98,12 @@ spec:
       outputs:
         artifacts:
           - name: eiger-analysis-plot
-            path: /tmp/eiger-analysis.png
+            path: "/tmp/i15-1-{{`{{inputs.parameters.filenumber}}`}}.png"
             optional: true
             archive:
               none: {}
           - name: eiger-analysis-xy
-            path: "/tmp/{{`{{inputs.parameters.filenumber}}`}}.xy"
+            path: "/tmp/i15-1-{{`{{inputs.parameters.filenumber}}`}}.xy"
             optional: true
             archive:
               none: {}
