@@ -96,7 +96,7 @@ spec:
       outputs:
         artifacts:
           - name: eiger-analysis-plot
-            path: /tmp/eiger-analysis.png
+            path: "/tmp/{{`{{inputs.parameters.filenumber}}`}}.png"
             optional: true
             archive:
               none: {}
