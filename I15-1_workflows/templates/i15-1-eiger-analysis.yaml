@@ -96,12 +96,12 @@ spec:
       outputs:
         artifacts:
           - name: eiger-analysis-plot
-            path: "/tmp/{{`{{inputs.parameters.filenumber}}`}}.png"
+            path: "/tmp/i15-1-{{`{{inputs.parameters.filenumber}}`}}.png"
             optional: true
             archive:
               none: {}
           - name: eiger-analysis-xy
-            path: "/tmp/{{`{{inputs.parameters.filenumber}}`}}.xy"
+            path: "/tmp/i15-1-{{`{{inputs.parameters.filenumber}}`}}.xy"
             optional: true
             archive:
               none: {}
