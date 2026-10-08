@@ -84,7 +84,7 @@ spec:
                 plt.plot(two_theta, intensity)
                 plt.xlabel("2theta (deg)")
                 plt.ylabel("Intensity (Arb. Units)")
-                plt.title(filenumber_str)
+                plt.title(f"i15-1-{filenumber_str})
                 plt.savefig(artifact_path)
                 plt.close()
               except Exception as e:
