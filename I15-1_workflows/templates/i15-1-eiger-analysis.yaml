@@ -21,15 +21,8 @@ spec:
     hostPath:
       path: "{{`{{ workflow.parameters.visitdir }}`}}"
       type: Directory
-  volumeClaimTemplates:
-  - metadata:
-      name: tmpdir
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 1Gi
-      storageClassName: netapp
+  - name: tmpdir
+    emptyDir: {}
   templates:
     - name: i15-1-eiger-analysis
       inputs:
