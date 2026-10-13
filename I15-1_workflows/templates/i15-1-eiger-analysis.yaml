@@ -26,8 +26,15 @@ spec:
     hostPath:
       path: "{{`{{ workflow.parameters.visitdir }}`}}"
       type: Directory
-  - name: tmpdir
-    emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: tmpdir
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: netapp
   templates:
     - name: i15-1-eiger-analysis
       inputs:
@@ -50,6 +57,8 @@ spec:
             value: "1"
         source: |
 
+          import json
+          import os
           import shutil
 
           from xrpd_toolbox.i15_1.eiger_analysis import run_eiger_analysis
@@ -72,7 +81,9 @@ spec:
 
           output_name = beamline + "-" + filenumber_str
 
-          if output_xy is not None:
+          xy_items = []
+
+          if isinstance(output_xy, Path):
               xy_artifact_path = f"/tmp/{output_name}.xy"
               shutil.copy(str(output_xy), xy_artifact_path)
 
@@ -89,11 +100,33 @@ spec:
                 plt.close()
               except Exception as e:
                 print(f"output_xy is not xy? :, {e} skipping plot")
+
+          elif isinstance(output_xy, list):
+              # move xy files to the shared tmp volume so that a separate
+              # plot-eiger-xy task can be fanned out per file, each
+              # producing its own individual artifacts
+              xy_dir = "/tmp/xy_files"
+              os.makedirs(xy_dir, exist_ok=True)
+              for idx, src_path in enumerate(output_xy):
+                  xy_filename = f"{output_name}_{idx}.xy"
+                  plot_filename = f"{output_name}_{idx}.png"
+                  shutil.copy(str(src_path), os.path.join(xy_dir, xy_filename))
+                  xy_items.append(
+                      {"index": idx, "xy_filename": xy_filename, "plot_filename": plot_filename}
+                  )
+
           else:
               print("output_xy is None, skipping plot")
 
+          with open("/tmp/eiger-xy-items.json", "w") as f:
+              json.dump(xy_items, f)
+
 
       outputs:
+        parameters:
+          - name: eiger-xy-items
+            valueFrom:
+              path: /tmp/eiger-xy-items.json
         artifacts:
           - name: eiger-analysis-plot
             path: "/tmp/i15-1-{{`{{inputs.parameters.filenumber}}`}}.png"
@@ -117,6 +150,58 @@ spec:
               cpu: "1"
               memory: 20Gi
 
+    - name: plot-eiger-xy
+      inputs:
+        parameters:
+          - name: index
+          - name: xy_filename
+          - name: plot_filename
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        command: ["python"]
+        source: |
+
+          from pathlib import Path
+
+          import matplotlib
+          matplotlib.use("Agg")
+          import matplotlib.pyplot as plt
+          import numpy as np
+
+          xy_filename = "{{`{{ inputs.parameters.xy_filename }}`}}"
+          plot_filename = "{{`{{ inputs.parameters.plot_filename }}`}}"
+
+          xy_path = Path("/tmp/xy_files") / xy_filename
+          plot_path = Path("/tmp/xy_files") / plot_filename
+
+          try:
+              two_theta, intensity = np.loadtxt(str(xy_path), unpack=True)
+
+              plt.figure()
+              plt.plot(two_theta, intensity)
+              plt.xlabel("2theta (deg)")
+              plt.ylabel("Intensity (Arb. Units)")
+              plt.title(xy_path.stem)
+              plt.savefig(str(plot_path))
+              plt.close()
+          except Exception as e:
+              print(f"{xy_filename} is not xy? :, {e} skipping plot")
+
+      outputs:
+        artifacts:
+          - name: "eiger-analysis-xy-{{`{{inputs.parameters.index}}`}}"
+            path: "/tmp/xy_files/{{`{{inputs.parameters.xy_filename}}`}}"
+            archive:
+              none: {}
+          - name: "eiger-analysis-plot-{{`{{inputs.parameters.index}}`}}"
+            path: "/tmp/xy_files/{{`{{inputs.parameters.plot_filename}}`}}"
+            optional: true
+            archive:
+              none: {}
+
     - name: workflow-entry
       dag:
         tasks:
@@ -127,3 +212,16 @@ spec:
             parameters:
             - name: filenumber
               value: "{{`{{workflow.parameters.filenumber}}`}}"
+
+        - name: plot-eiger-xy
+          template: plot-eiger-xy
+          dependencies: [i15-1-eiger-analysis]
+          arguments:
+            parameters:
+            - name: index
+              value: "{{`{{item.index}}`}}"
+            - name: xy_filename
+              value: "{{`{{item.xy_filename}}`}}"
+            - name: plot_filename
+              value: "{{`{{item.plot_filename}}`}}"
+          withParam: "{{`{{tasks.i15-1-eiger-analysis.outputs.parameters.eiger-xy-items}}`}}"
