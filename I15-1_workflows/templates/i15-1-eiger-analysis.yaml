@@ -16,6 +16,11 @@ spec:
     parameters:
       - name: filenumber
         value: "12345"
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
   volumes:
   - name: session
     hostPath:
