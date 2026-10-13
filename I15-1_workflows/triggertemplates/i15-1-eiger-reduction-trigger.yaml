@@ -10,7 +10,7 @@ spec:
   eventName: i15-1-message
   workflow:
     template: i15-1-eiger-analysis
-    triggerOnMessageType: stop
+    triggerOnMessageType: stop # can also use start - to trigger at startdoc
     parameters:
       - name: visitdir
         path: doc.data_session_directory
