@@ -1,0 +1,203 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i15-1-tiled
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i15-1-tiled
+    workflows.argoproj.io/description: |
+      Connects to the Tiled data server as the i15-1 service account (client
+      credentials grant) and looks up a scan's run by scan number, as a
+      starting point for Tiled-backed processing steps.
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: scan_number
+        value: "12345"
+      - name: tiled_secret_name
+        value: "i15-1-tiled-secret"
+      - name: proposal_code
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: proposal_code
+      - name: proposal_number
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: proposal_number
+      - name: visit
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: visit
+  volumes:
+  - name: tmpdir
+    emptyDir: {}
+  templates:
+    - name: i15-1-tiled
+      inputs:
+        parameters:
+          - name: scan_number
+          - name: proposal_code
+          - name: proposal_number
+          - name: visit
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        command: ["python"]
+        env:
+          - name: TILED_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{`{{ workflow.parameters.tiled_secret_name }}`}}"
+                key: client-id
+          - name: TILED_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: "{{`{{ workflow.parameters.tiled_secret_name }}`}}"
+                key: client-secret
+        source: |
+
+          import os
+          import subprocess
+          import sys
+          import threading
+
+          # xrpd-toolbox:latest doesn't ship the tiled client yet; install it
+          # here until it's added to that image's dependencies.
+          subprocess.run(
+              [sys.executable, "-m", "pip", "install", "--quiet", "tiled[client]"],
+              check=True,
+          )
+
+          import httpx
+          from pydantic import BaseModel, Field, SecretStr
+          from tiled.client import from_uri
+          from tiled.client.container import Container
+          from tiled.queries import Eq
+
+
+          class TiledConfig(BaseModel):
+              client_id: str = Field(description="Service account client ID")
+              client_secret: SecretStr = Field(description="Service account client secret")
+              tiled_url: str = Field(description="Tiled url")
+              token_url: str = Field(description="OIDC token endpoint")
+
+
+          class TiledAuth(httpx.Auth):
+              def __init__(self, tiled_config: TiledConfig):
+                  self._tiled_config = tiled_config
+                  self._sync_lock = threading.RLock()
+
+              def get_access_token(self):
+                  with self._sync_lock:
+                      response = httpx.post(
+                          self._tiled_config.token_url,
+                          data={
+                              "client_id": self._tiled_config.client_id,
+                              "client_secret": self._tiled_config.client_secret.get_secret_value(),
+                              "grant_type": "client_credentials",
+                          },
+                      )
+                      response.raise_for_status()
+                      return response.json()["access_token"]
+
+              def sync_auth_flow(self, request):
+                  request.headers["Authorization"] = f"Bearer {self.get_access_token()}"
+                  yield request
+
+
+          def get_run_container(
+              client, beamline: str, instrument_session: str, scan_number: int
+          ) -> tuple[str, Container]:
+              """
+              Find a scan's run in tiled.
+
+              Returns:
+                  (uid, run): the run's uuid, and the run as a tiled Container.
+
+              Raises:
+                  ValueError: If no run, or more than one, matches the scan number.
+              """
+
+              results_container = (
+                  client.search(Eq("start.instrument", beamline))
+                  .search(Eq("start.instrument_session", instrument_session))
+                  .search(Eq("start.scan_id", scan_number))
+              )
+
+              if len(results_container) != 1:
+                  raise ValueError(
+                      f"Expected 1 run for scan {scan_number} in {instrument_session}, "
+                      f"found {len(results_container)}"
+                  )
+
+              uid = next(iter(results_container))
+              return uid, results_container[uid]
+
+
+          tiled_config = TiledConfig(
+              client_id=os.environ["TILED_CLIENT_ID"],
+              client_secret=SecretStr(os.environ["TILED_CLIENT_SECRET"]),
+              tiled_url="https://tiled.diamond.ac.uk",
+              token_url="https://identity.diamond.ac.uk/realms/dls/protocol/openid-connect/token",
+          )
+
+          tiled_client = from_uri(
+              tiled_config.tiled_url,
+              auth=TiledAuth(tiled_config=tiled_config),
+          )
+
+          beamline = "i15-1"
+          proposal_code = "{{`{{ inputs.parameters.proposal_code }}`}}"
+          proposal_number = "{{`{{ inputs.parameters.proposal_number }}`}}"
+          visit = "{{`{{ inputs.parameters.visit }}`}}"
+          instrument_session = f"{proposal_code}{proposal_number}-{visit}"
+          scan_number = int("{{`{{ inputs.parameters.scan_number }}`}}")
+
+          uid, run = get_run_container(
+              tiled_client,
+              beamline=beamline,
+              instrument_session=instrument_session,
+              scan_number=scan_number,
+          )
+
+          print(f"Connected to Tiled at {tiled_config.tiled_url}")
+          print(f"uid: {uid}")
+          print(f"streams: {list(run)}")
+          print(f"start doc: {run.metadata["start"]}")
+          print(f"stop doc: {run.metadata["stop"]}")
+
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "1"
+              memory: 4Gi
+            limits:
+              cpu: "1"
+              memory: 8Gi
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: i15-1-tiled
+          template: i15-1-tiled
+          dependencies: []
+          arguments:
+            parameters:
+            - name: scan_number
+              value: "{{`{{workflow.parameters.scan_number}}`}}"
+            - name: proposal_code
+              value: "{{`{{workflow.parameters.proposal_code}}`}}"
+            - name: proposal_number
+              value: "{{`{{workflow.parameters.proposal_number}}`}}"
+            - name: visit
+              value: "{{`{{workflow.parameters.visit}}`}}"
