@@ -69,6 +69,8 @@ spec:
           import sys
           import threading
 
+          print("Import 1 done")
+
           # xrpd-toolbox:latest doesn't ship the tiled client yet; install it
           # here until it's added to that image's dependencies.
           subprocess.run(
@@ -76,12 +78,15 @@ spec:
               check=True,
           )
 
+          print("Install tiled client")
+
           import httpx
           from pydantic import BaseModel, Field, SecretStr
           from tiled.client import from_uri
           from tiled.client.container import Container
           from tiled.queries import Eq
 
+          print("Import 2 done")
 
           class TiledConfig(BaseModel):
               client_id: str = Field(description="Service account client ID")
@@ -149,10 +154,15 @@ spec:
               token_url="https://identity.diamond.ac.uk/realms/dls/protocol/openid-connect/token",
           )
 
+          print(tiled_config)
+
+
           tiled_client = from_uri(
               tiled_config.tiled_url,
               auth=TiledAuth(tiled_config=tiled_config),
           )
+
+          print(tiled_client)
 
           beamline = "i15-1"
           proposal_code = "{{`{{ inputs.parameters.proposal_code }}`}}"
@@ -167,6 +177,8 @@ spec:
               instrument_session=instrument_session,
               scan_number=scan_number,
           )
+          
+          print(uid, run)
 
           print(f"Connected to Tiled at {tiled_config.tiled_url}")
           print(f"uid: {uid}")
