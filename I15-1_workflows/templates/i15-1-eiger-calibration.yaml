@@ -91,7 +91,7 @@ spec:
           with open("/tmp/goniometer_model.json", "w") as f:
               f.write(goniometer_model_json)
 
-          list_of_image_paths = get_calibation_fit_images(goniometer_model_json)
+          list_of_image_paths = get_calibation_fit_images(nexus_filepath)
 
           # move fit images to shared tmp volume so that a separate
           # publish-calibration-image task can be fanned out per image, each
