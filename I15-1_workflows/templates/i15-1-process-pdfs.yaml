@@ -1,0 +1,200 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i15-1-process-pdfs
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i15-1-process-pdfs
+    workflows.argoproj.io/description: |
+      Sends the already-reduced .xy file for each given filenumber to
+      pdfcurl, one filenumber at a time. Filenumbers may be a single number,
+      a comma-separated list, a range (e.g. "12345-12349"), or a mix of
+      these.
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: filenumbers
+        value: "12345-12349"
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
+      - name: composition
+        value: ""
+      - name: background_file
+        value: ""
+      - name: output_filepath
+        value: ""
+      - name: publish
+        value: "false"
+      - name: qmaxinst
+        value: "50.0"
+      - name: qmin
+        value: "0.5"
+      - name: qmax
+        value: "50.0"
+      - name: rmin
+        value: "0.0"
+      - name: rmax
+        value: "20.0"
+      - name: rstep
+        value: "0.02"
+      - name: rpoly
+        value: "0.9"
+  volumes:
+  - name: session
+    hostPath:
+      path: "{{`{{ workflow.parameters.visitdir }}`}}"
+      type: Directory
+  - name: tmpdir
+    emptyDir: {}
+  templates:
+    - name: i15-1-process-pdfs
+      inputs:
+        parameters:
+          - name: filenumbers
+          - name: composition
+          - name: background_file
+          - name: output_filepath
+          - name: publish
+          - name: qmaxinst
+          - name: qmin
+          - name: qmax
+          - name: rmin
+          - name: rmax
+          - name: rstep
+          - name: rpoly
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        command: ["python"]
+        source: |
+
+          from pathlib import Path
+
+          from xrpd_toolbox.i15_1.eiger_500k import EigerDataLoader
+          from xrpd_toolbox.i15_1.eiger_analysis import _get_background_xy_filepath
+          from xrpd_toolbox.utils.pdfcurl import send_xy_to_pdfcurl
+
+          filenumbers_str = "{{`{{ inputs.parameters.filenumbers }}`}}"
+          visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
+          beamline = "i15-1"
+
+          filenumber_values: list[int] = []
+          for part in filenumbers_str.split(","):
+              part = part.strip()
+              if not part:
+                  continue
+              if "-" in part:
+                  start_str, end_str = part.split("-", 1)
+                  filenumber_values.extend(range(int(start_str), int(end_str) + 1))
+              else:
+                  filenumber_values.append(int(part))
+
+          composition_override = "{{`{{ inputs.parameters.composition }}`}}"
+          background_file_override = "{{`{{ inputs.parameters.background_file }}`}}"
+          output_filepath_str = "{{`{{ inputs.parameters.output_filepath }}`}}"
+          output_filepath = [
+              path.strip() for path in output_filepath_str.split(",") if path.strip()
+          ] or None
+          publish = "{{`{{ inputs.parameters.publish }}`}}".lower() == "true"
+          qmaxinst = float("{{`{{ inputs.parameters.qmaxinst }}`}}")
+          qmin = float("{{`{{ inputs.parameters.qmin }}`}}")
+          qmax = float("{{`{{ inputs.parameters.qmax }}`}}")
+          rmin = float("{{`{{ inputs.parameters.rmin }}`}}")
+          rmax = float("{{`{{ inputs.parameters.rmax }}`}}")
+          rstep = float("{{`{{ inputs.parameters.rstep }}`}}")
+          rpoly = float("{{`{{ inputs.parameters.rpoly }}`}}")
+
+          for filenumber in filenumber_values:
+              output_name = f"{beamline}-{filenumber}"
+              processed_dir = Path(visit_dir) / "processed" / output_name
+              xy_filepaths = (
+                  sorted(processed_dir.glob("*.xy")) if processed_dir.is_dir() else []
+              )
+
+              if not xy_filepaths:
+                  print(f"No .xy file found for {output_name} in {processed_dir}, skipping")
+                  continue
+
+              nexus_filepath = Path(visit_dir) / f"{output_name}.nxs"
+              eiger_data = EigerDataLoader(nexus_filepath)
+
+              wavelength = eiger_data.get_wavelength()
+              composition = composition_override or eiger_data.get_composition()
+              background_file = background_file_override or _get_background_xy_filepath(
+                  eiger_data
+              )
+
+              for xy_filepath in xy_filepaths:
+                  try:
+                      result = send_xy_to_pdfcurl(
+                          xy_filepath=xy_filepath,
+                          composition=composition,
+                          wavelength=wavelength,
+                          background_file=background_file,
+                          output_filepath=output_filepath,
+                          publish=publish,
+                          qmaxinst=qmaxinst,
+                          qmin=qmin,
+                          qmax=qmax,
+                          rmin=rmin,
+                          rmax=rmax,
+                          rstep=rstep,
+                          rpoly=rpoly,
+                      )
+                      print(f"{xy_filepath}: {result}")
+                  except Exception as e:
+                      print(f"{xy_filepath}: failed to send to pdfcurl: {e}")
+
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "1"
+              memory: 4Gi
+            limits:
+              cpu: "1"
+              memory: 8Gi
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: i15-1-process-pdfs
+          template: i15-1-process-pdfs
+          dependencies: []
+          arguments:
+            parameters:
+            - name: filenumbers
+              value: "{{`{{workflow.parameters.filenumbers}}`}}"
+            - name: composition
+              value: "{{`{{workflow.parameters.composition}}`}}"
+            - name: background_file
+              value: "{{`{{workflow.parameters.background_file}}`}}"
+            - name: output_filepath
+              value: "{{`{{workflow.parameters.output_filepath}}`}}"
+            - name: publish
+              value: "{{`{{workflow.parameters.publish}}`}}"
+            - name: qmaxinst
+              value: "{{`{{workflow.parameters.qmaxinst}}`}}"
+            - name: qmin
+              value: "{{`{{workflow.parameters.qmin}}`}}"
+            - name: qmax
+              value: "{{`{{workflow.parameters.qmax}}`}}"
+            - name: rmin
+              value: "{{`{{workflow.parameters.rmin}}`}}"
+            - name: rmax
+              value: "{{`{{workflow.parameters.rmax}}`}}"
+            - name: rstep
+              value: "{{`{{workflow.parameters.rstep}}`}}"
+            - name: rpoly
+              value: "{{`{{workflow.parameters.rpoly}}`}}"
