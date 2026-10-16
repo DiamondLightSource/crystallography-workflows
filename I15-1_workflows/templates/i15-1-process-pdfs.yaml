@@ -23,14 +23,11 @@ spec:
           configMapKeyRef:
             name: sessionspaces
             key: data_directory
-      - name: composition
-        value: ""
-      - name: background_file
-        value: ""
-      - name: output_filepath
-        value: ""
       - name: publish
         value: "false"
+        enum:
+          - "false"
+          - "true"
       - name: qmaxinst
         value: "50.0"
       - name: qmin
@@ -57,9 +54,6 @@ spec:
       inputs:
         parameters:
           - name: filenumbers
-          - name: composition
-          - name: background_file
-          - name: output_filepath
           - name: publish
           - name: qmaxinst
           - name: qmin
@@ -99,12 +93,6 @@ spec:
               else:
                   filenumber_values.append(int(part))
 
-          composition_override = "{{`{{ inputs.parameters.composition }}`}}"
-          background_file_override = "{{`{{ inputs.parameters.background_file }}`}}"
-          output_filepath_str = "{{`{{ inputs.parameters.output_filepath }}`}}"
-          output_filepath = [
-              path.strip() for path in output_filepath_str.split(",") if path.strip()
-          ] or None
           publish = "{{`{{ inputs.parameters.publish }}`}}".lower() == "true"
           qmaxinst = float("{{`{{ inputs.parameters.qmaxinst }}`}}")
           qmin = float("{{`{{ inputs.parameters.qmin }}`}}")
@@ -129,10 +117,8 @@ spec:
               eiger_data = EigerDataLoader(nexus_filepath)
 
               wavelength = eiger_data.get_wavelength()
-              composition = composition_override or eiger_data.get_composition()
-              background_file = background_file_override or _get_background_xy_filepath(
-                  eiger_data
-              )
+              composition = eiger_data.get_composition()
+              background_file = _get_background_xy_filepath(eiger_data)
 
               for xy_filepath in xy_filepaths:
                   try:
@@ -141,7 +127,6 @@ spec:
                           composition=composition,
                           wavelength=wavelength,
                           background_file=background_file,
-                          output_filepath=output_filepath,
                           publish=publish,
                           qmaxinst=qmaxinst,
                           qmin=qmin,
@@ -176,12 +161,6 @@ spec:
             parameters:
             - name: filenumbers
               value: "{{`{{workflow.parameters.filenumbers}}`}}"
-            - name: composition
-              value: "{{`{{workflow.parameters.composition}}`}}"
-            - name: background_file
-              value: "{{`{{workflow.parameters.background_file}}`}}"
-            - name: output_filepath
-              value: "{{`{{workflow.parameters.output_filepath}}`}}"
             - name: publish
               value: "{{`{{workflow.parameters.publish}}`}}"
             - name: qmaxinst
