@@ -1,0 +1,106 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i11-test-gaussian
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i11-test-gaussian
+    workflows.argoproj.io/description: |
+      This is a test that creates a gaussian and fits it for sample alignment
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: centre
+        value: "5"
+      - name: amplitude
+        value: "20"
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
+  volumes:
+  - name: session
+    hostPath:
+      path: "{{`{{ workflow.parameters.visitdir }}`}}"
+      type: Directory
+  - name: tmpdir
+    emptyDir: {}
+  templates:
+    - name: i11-test-gaussian
+      inputs:
+        parameters:
+          - name: centre
+          - name: amplitude
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        command: ["python"]
+        env:
+          - name: MKL_NUM_THREADS
+            value: "1"
+          - name: NUMEXPR_NUM_THREADS
+            value: "1"
+          - name: OMP_NUM_THREADS
+            value: "1"
+        source: |
+          import numpy as np
+          import time
+          from scipy.optimize import curve_fit
+          import matplotlib.pyplot as plt
+
+          from xrpd_toolbox.fit_engine.peaks import gaussian
+
+          amplitude = int("{{`{{ inputs.parameters.amplitude }}`}}")
+          centre = int("{{`{{ inputs.parameters.centre }}`}}")
+
+          x = np.linspace(centre-10,centre+10,100)
+          y = gaussian(x, amplitude, centre, 0.5)
+          y_noisy = y + np.random.rand(y.shape[-1]) / 5
+
+          print(y_noisy)
+
+          artifact_path = "/tmp/gaussian.png"
+
+          plt.plot(x, y_noisy)
+          plt.savefig(artifact_path)
+
+
+      outputs:
+        artifacts:
+          - name: gaussian-plot
+            path: /tmp/gaussian.png
+            optional: true
+            archive:
+              none: {}
+
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "1"
+              memory: 10Gi
+            limits:
+              cpu: "1"
+              memory: 20Gi
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: i11-test-gaussian
+          template: i11-test-gaussian
+          dependencies: []
+          arguments:
+            parameters:
+            - name: centre
+              value: "{{`{{workflow.parameters.centre}}`}}"
+            - name: amplitude
+              value: "{{`{{workflow.parameters.amplitude}}`}}"

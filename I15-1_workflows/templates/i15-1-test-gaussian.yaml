@@ -55,7 +55,6 @@ spec:
           import time
           from scipy.optimize import curve_fit
           import matplotlib.pyplot as plt
-          import os
 
           from xrpd_toolbox.fit_engine.peaks import gaussian
 
@@ -68,12 +67,19 @@ spec:
 
           print(y_noisy)
 
-          visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
-          filepath_out = os.path.join(visit_dir, "gaussian.png")
+          artifact_path = "/tmp/gaussian.png"
 
           plt.plot(x, y_noisy)
-          plt.savefig(filepath_out)
+          plt.savefig(artifact_path)
 
+
+      outputs:
+        artifacts:
+          - name: gaussian-plot
+            path: /tmp/gaussian.png
+            optional: true
+            archive:
+              none: {}
 
       podSpecPatch: |
         containers:
