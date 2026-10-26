@@ -8,9 +8,9 @@ metadata:
     workflows.argoproj.io/title: i15-1-process-pdfs
     workflows.argoproj.io/description: |
       Sends the already-reduced .xy file for each given filenumber to
-      pdfcurl, one filenumber at a time. Filenumbers may be a single number,
-      a comma-separated list, a range (e.g. "12345-12349"), or a mix of
-      these.
+      the containerised pdfgetx3 (pdfcurl), one filenumber at a time. 
+      Filenumbers may be a single number, a comma-separated list, 
+      a range (e.g. "12345-12349"), or a mix of these.
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
 spec:
   entrypoint: workflow-entry
