@@ -12,16 +12,6 @@ metadata:
       Filenumbers may be a single number, a comma-separated list, 
       a range (e.g. "12345-12349"), or a mix of these.
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
-    workflows.diamond.ac.uk/parameter-schema.terminationfunctions: |
-      {
-        "type": "string",
-        "oneOf": [
-          { "const": "", "title": "None" },
-          { "const": "lorch", "title": "lorch" },
-          { "const": "step", "title": "step" }
-        ],
-        "default": ""
-      }
     workflows.diamond.ac.uk/parameter-schema.publish: |
       {
         "type": "string",
@@ -75,6 +65,10 @@ spec:
         value: "0.9"
       - name: terminationfunctions
         value: ""
+        enum:
+          - ""
+          - "lorch"
+          - "step"
       - name: twothetazero
         value: "0"
       - name: bgscale
