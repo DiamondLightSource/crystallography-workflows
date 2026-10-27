@@ -24,7 +24,6 @@ metadata:
         "type": "VerticalLayout",
         "elements": [
           { "type": "Control", "scope": "#/properties/filenumbers" },
-          { "type": "Control", "scope": "#/properties/visitdir" },
           { "type": "Control", "scope": "#/properties/qmaxinst" },
           { "type": "Control", "scope": "#/properties/qmin" },
           { "type": "Control", "scope": "#/properties/qmax" },
