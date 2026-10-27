@@ -12,12 +12,41 @@ metadata:
       Filenumbers may be a single number, a comma-separated list, 
       a range (e.g. "12345-12349"), or a mix of these.
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
+    workflows.diamond.ac.uk/parameter-schema.terminationfunctions: |
+      {
+        "type": "string",
+        "oneOf": [
+          { "const": "", "title": "None" },
+          { "const": "lorch", "title": "lorch" },
+          { "const": "step", "title": "step" }
+        ],
+        "default": ""
+      }
     workflows.diamond.ac.uk/parameter-schema.publish: |
       {
         "type": "string",
         "enum": ["false", "true"],
         "default": "false",
         "description": "Also publish the resulting curves (iq/sq/fq/gr) to xrpddatavis for live plotting, in addition to returning them from pdfcurl."
+      }
+    workflows.diamond.ac.uk/ui-schema: |
+      {
+        "type": "VerticalLayout",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/filenumbers" },
+          { "type": "Control", "scope": "#/properties/visitdir" },
+          { "type": "Control", "scope": "#/properties/qmaxinst" },
+          { "type": "Control", "scope": "#/properties/qmin" },
+          { "type": "Control", "scope": "#/properties/qmax" },
+          { "type": "Control", "scope": "#/properties/rmin" },
+          { "type": "Control", "scope": "#/properties/rmax" },
+          { "type": "Control", "scope": "#/properties/rstep" },
+          { "type": "Control", "scope": "#/properties/rpoly" },
+          { "type": "Control", "scope": "#/properties/terminationfunctions" },
+          { "type": "Control", "scope": "#/properties/twothetazero" },
+          { "type": "Control", "scope": "#/properties/bgscale" },
+          { "type": "Control", "scope": "#/properties/publish" }
+        ]
       }
 spec:
   entrypoint: workflow-entry
@@ -46,11 +75,6 @@ spec:
         value: "0.9"
       - name: terminationfunctions
         value: ""
-        enum:
-          - ""
-          - "lorch"
-          - "step"
-          - "lorch,step"
       - name: twothetazero
         value: "0"
       - name: bgscale
@@ -118,10 +142,7 @@ spec:
           rmax = float("{{`{{ inputs.parameters.rmax }}`}}")
           rstep = float("{{`{{ inputs.parameters.rstep }}`}}")
           rpoly = float("{{`{{ inputs.parameters.rpoly }}`}}")
-          terminationfunctions_str = "{{`{{ inputs.parameters.terminationfunctions }}`}}"
-          terminationfunctions = [
-              t.strip() for t in terminationfunctions_str.split(",") if t.strip()
-          ] or None
+          terminationfunctions = "{{`{{ inputs.parameters.terminationfunctions }}`}}" or None
           twothetazero = float("{{`{{ inputs.parameters.twothetazero }}`}}")
           bgscale = float("{{`{{ inputs.parameters.bgscale }}`}}")
           publish = "{{`{{ inputs.parameters.publish }}`}}".lower() == "true"
