@@ -63,9 +63,9 @@ spec:
       - name: rpoly
         value: "0.9"
       - name: terminationfunctions
-        value: ""
+        value: "None"
         enum:
-          - ""
+          - "None"
           - "lorch"
           - "step"
       - name: twothetazero
@@ -135,7 +135,10 @@ spec:
           rmax = float("{{`{{ inputs.parameters.rmax }}`}}")
           rstep = float("{{`{{ inputs.parameters.rstep }}`}}")
           rpoly = float("{{`{{ inputs.parameters.rpoly }}`}}")
-          terminationfunctions = "{{`{{ inputs.parameters.terminationfunctions }}`}}" or None
+          terminationfunctions_str = "{{`{{ inputs.parameters.terminationfunctions }}`}}"
+          terminationfunctions = (
+              None if terminationfunctions_str == "None" else terminationfunctions_str
+          )
           twothetazero = float("{{`{{ inputs.parameters.twothetazero }}`}}")
           bgscale = float("{{`{{ inputs.parameters.bgscale }}`}}")
           publish = "{{`{{ inputs.parameters.publish }}`}}".lower() == "true"
