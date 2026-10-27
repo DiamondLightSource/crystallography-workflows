@@ -12,6 +12,13 @@ metadata:
       Filenumbers may be a single number, a comma-separated list, 
       a range (e.g. "12345-12349"), or a mix of these.
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
+    workflows.diamond.ac.uk/parameter-schema.publish: |
+      {
+        "type": "string",
+        "enum": ["false", "true"],
+        "default": "false",
+        "description": "Also publish the resulting curves (iq/sq/fq/gr) to xrpddatavis for live plotting, in addition to returning them from pdfcurl."
+      }
 spec:
   entrypoint: workflow-entry
   arguments:
@@ -23,11 +30,6 @@ spec:
           configMapKeyRef:
             name: sessionspaces
             key: data_directory
-      - name: publish
-        value: "false"
-        enum:
-          - "false"
-          - "true"
       - name: qmaxinst
         value: "50.0"
       - name: qmin
@@ -42,6 +44,19 @@ spec:
         value: "0.02"
       - name: rpoly
         value: "0.9"
+      - name: terminationfunctions
+        value: ""
+        enum:
+          - ""
+          - "lorch"
+          - "step"
+          - "lorch,step"
+      - name: twothetazero
+        value: "0"
+      - name: bgscale
+        value: "1.0"
+      - name: publish
+        value: "false"
   volumes:
   - name: session
     hostPath:
@@ -54,7 +69,6 @@ spec:
       inputs:
         parameters:
           - name: filenumbers
-          - name: publish
           - name: qmaxinst
           - name: qmin
           - name: qmax
@@ -62,6 +76,10 @@ spec:
           - name: rmax
           - name: rstep
           - name: rpoly
+          - name: terminationfunctions
+          - name: twothetazero
+          - name: bgscale
+          - name: publish
       script:
         image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
         volumeMounts:
@@ -93,7 +111,6 @@ spec:
               else:
                   filenumber_values.append(int(part))
 
-          publish = "{{`{{ inputs.parameters.publish }}`}}".lower() == "true"
           qmaxinst = float("{{`{{ inputs.parameters.qmaxinst }}`}}")
           qmin = float("{{`{{ inputs.parameters.qmin }}`}}")
           qmax = float("{{`{{ inputs.parameters.qmax }}`}}")
@@ -101,6 +118,13 @@ spec:
           rmax = float("{{`{{ inputs.parameters.rmax }}`}}")
           rstep = float("{{`{{ inputs.parameters.rstep }}`}}")
           rpoly = float("{{`{{ inputs.parameters.rpoly }}`}}")
+          terminationfunctions_str = "{{`{{ inputs.parameters.terminationfunctions }}`}}"
+          terminationfunctions = [
+              t.strip() for t in terminationfunctions_str.split(",") if t.strip()
+          ] or None
+          twothetazero = float("{{`{{ inputs.parameters.twothetazero }}`}}")
+          bgscale = float("{{`{{ inputs.parameters.bgscale }}`}}")
+          publish = "{{`{{ inputs.parameters.publish }}`}}".lower() == "true"
 
           for filenumber in filenumber_values:
               output_name = f"{beamline}-{filenumber}"
@@ -127,7 +151,6 @@ spec:
                           composition=composition,
                           wavelength=wavelength,
                           background_file=background_file,
-                          publish=publish,
                           qmaxinst=qmaxinst,
                           qmin=qmin,
                           qmax=qmax,
@@ -135,6 +158,10 @@ spec:
                           rmax=rmax,
                           rstep=rstep,
                           rpoly=rpoly,
+                          terminationfunctions=terminationfunctions,
+                          twothetazero=twothetazero,
+                          bgscale=bgscale,
+                          publish=publish,
                       )
                       print(f"{xy_filepath}: {result}")
                   except Exception as e:
@@ -161,8 +188,6 @@ spec:
             parameters:
             - name: filenumbers
               value: "{{`{{workflow.parameters.filenumbers}}`}}"
-            - name: publish
-              value: "{{`{{workflow.parameters.publish}}`}}"
             - name: qmaxinst
               value: "{{`{{workflow.parameters.qmaxinst}}`}}"
             - name: qmin
@@ -177,3 +202,11 @@ spec:
               value: "{{`{{workflow.parameters.rstep}}`}}"
             - name: rpoly
               value: "{{`{{workflow.parameters.rpoly}}`}}"
+            - name: terminationfunctions
+              value: "{{`{{workflow.parameters.terminationfunctions}}`}}"
+            - name: twothetazero
+              value: "{{`{{workflow.parameters.twothetazero}}`}}"
+            - name: bgscale
+              value: "{{`{{workflow.parameters.bgscale}}`}}"
+            - name: publish
+              value: "{{`{{workflow.parameters.publish}}`}}"
