@@ -1,0 +1,104 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i11-fast-trigger
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i11-fast-trigger
+    workflows.argoproj.io/description: |
+      This takes a nxs filenumber and runs the mythen time resolved scan
+      processing. This should be done at the end of every scan.
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: filenumber
+        value: "12345"
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
+  volumes:
+  - name: session
+    hostPath:
+      path: "{{`{{ workflow.parameters.visitdir }}`}}"
+      type: Directory
+  volumeClaimTemplates:
+  - metadata:
+      name: tmpdir
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: netapp
+  templates:
+    - name: i11-mythen-analysis
+      inputs:
+        parameters:
+          - name: filenumber
+      script:
+        image: ghcr.io/diamondlightsource/xrpd-toolbox:latest
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        command: ["python"]
+        env:
+          - name: MKL_NUM_THREADS
+            value: "1"
+          - name: NUMEXPR_NUM_THREADS
+            value: "1"
+          - name: OMP_NUM_THREADS
+            value: "1"
+        source: |
+
+          import json
+
+          from xrpd_toolbox.i11.mythen_analysis import run_mythen_time_resolved_scan
+          from pathlib import Path
+
+          filenumber_str = str("{{`{{ inputs.parameters.filenumber }}`}}")
+          visit_dir = "{{`{{ workflow.parameters.visitdir }}`}}"
+
+          beamline = "i11"
+          filename = beamline + "-" + filenumber_str + ".nxs"
+
+          nexus_filepath = Path(visit_dir) / filename
+
+          output_filepaths = run_mythen_time_resolved_scan(filepath=str(nexus_filepath))
+
+          with open("/tmp/mythen-output-filepaths.json", "w") as f:
+              json.dump([str(p) for p in output_filepaths], f)
+
+      outputs:
+        parameters:
+          - name: mythen-output-filepaths
+            valueFrom:
+              path: /tmp/mythen-output-filepaths.json
+
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "1"
+              memory: 10Gi
+            limits:
+              cpu: "1"
+              memory: 20Gi
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: i11-mythen-analysis
+          template: i11-mythen-analysis
+          dependencies: []
+          arguments:
+            parameters:
+            - name: filenumber
+              value: "{{`{{workflow.parameters.filenumber}}`}}"
