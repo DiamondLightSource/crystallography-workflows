@@ -169,7 +169,7 @@ spec:
 
           visit_dir="{{`{{workflow.parameters.visitdir}}`}}"
           scan_name="i15-1-{{`{{inputs.parameters.filenumber}}`}}"
-          workflow_uid="{{`{{workflow.uid}}`}}"
+          workflow_uid="{{`{{workflow.name}}`}}"
           scan_path="$visit_dir/$scan_name.nxs"
           output_dir="$visit_dir/processed/workflows/$scan_name/$workflow_uid"
           latest_dir="$visit_dir/processed/$scan_name"
