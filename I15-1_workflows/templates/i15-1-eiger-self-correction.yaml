@@ -168,7 +168,7 @@ spec:
           set -eu
 
           scan_path="{{`{{workflow.parameters.visitdir}}`}}/i15-1-{{`{{inputs.parameters.filenumber}}`}}.nxs"
-          output_dir="{{`{{workflow.parameters.visitdir}}`}}/processed/i15-1-{{`{{inputs.parameters.filenumber}}`}}"
+          output_dir="{{`{{workflow.parameters.visitdir}}`}}/processed/workflows/{{`{{workflow.uid}}`}}/i15-1-{{`{{inputs.parameters.filenumber}}`}}"
 
           set --
           if [ -n "$EIGER_GEOMETRY" ]; then set -- "$@" --geometry "$EIGER_GEOMETRY"; fi
