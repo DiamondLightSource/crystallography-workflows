@@ -167,8 +167,13 @@ spec:
         source: |
           set -eu
 
-          scan_path="{{`{{workflow.parameters.visitdir}}`}}/i15-1-{{`{{inputs.parameters.filenumber}}`}}.nxs"
-          output_dir="{{`{{workflow.parameters.visitdir}}`}}/processed/workflows/{{`{{workflow.uid}}`}}/i15-1-{{`{{inputs.parameters.filenumber}}`}}"
+          visit_dir="{{`{{workflow.parameters.visitdir}}`}}"
+          scan_name="i15-1-{{`{{inputs.parameters.filenumber}}`}}"
+          workflow_uid="{{`{{workflow.uid}}`}}"
+          scan_path="$visit_dir/$scan_name.nxs"
+          output_dir="$visit_dir/processed/workflows/$scan_name/$workflow_uid"
+          latest_dir="$visit_dir/processed/$scan_name"
+          latest_link="$latest_dir/latest"
 
           set --
           if [ -n "$EIGER_GEOMETRY" ]; then set -- "$@" --geometry "$EIGER_GEOMETRY"; fi
@@ -198,6 +203,37 @@ spec:
 
           mkdir -p /tmp/eiger-correction
           cp -R "$output_dir"/. /tmp/eiger-correction/
+
+            mkdir -p "$latest_dir"
+            for filename in detector_corrections.h5 pattern.h5 pattern_2theta.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log; do
+              if [ ! -f "$output_dir/$filename" ]; then
+                printf 'Expected output is missing: %s\n' "$output_dir/$filename" >&2
+                exit 1
+              fi
+
+              link_path="$latest_dir/$filename"
+              if [ -e "$link_path" ] && [ ! -L "$link_path" ]; then
+                printf 'Refusing to replace non-symlink: %s\n' "$link_path" >&2
+                exit 1
+              fi
+            done
+
+            if [ -e "$latest_link" ] && [ ! -L "$latest_link" ]; then
+              printf 'Refusing to replace non-symlink: %s\n' "$latest_link" >&2
+              exit 1
+            fi
+
+            for filename in detector_corrections.h5 pattern.h5 pattern_2theta.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log; do
+              link_path="$latest_dir/$filename"
+              if [ -L "$link_path" ]; then
+                rm -- "$link_path"
+              fi
+              ln -s "latest/$filename" "$link_path"
+            done
+
+            next_latest="$latest_dir/.latest-$workflow_uid-$$"
+            ln -s "../workflows/$scan_name/$workflow_uid" "$next_latest"
+            mv -Tf -- "$next_latest" "$latest_link"
       outputs:
         artifacts:
           - name: eiger-correction-calibration
