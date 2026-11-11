@@ -178,7 +178,6 @@ spec:
 
           mkdir -p /tmp/eiger-correction
           printf 'Workflow URL: %s\n' "$workflow_url"
-          printf '%s\n' "$workflow_url" > /tmp/eiger-correction/workflow-url.txt
 
           set --
           if [ -n "$EIGER_GEOMETRY" ]; then set -- "$@" --geometry "$EIGER_GEOMETRY"; fi
@@ -216,7 +215,6 @@ spec:
             fi
 
             printf '%s\n' "$workflow_url" > "$output_dir/workflow-url.txt"
-            cp "$output_dir/workflow-url.txt" /tmp/eiger-correction/workflow-url.txt
 
             mkdir -p "$latest_dir"
             for filename in detector_corrections.h5 pattern.h5 pattern_2theta.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log workflow-url.txt; do
@@ -315,12 +313,6 @@ spec:
             optional: true
             archive:
               none: {}
-          - name: eiger-correction-workflow-url
-            path: /tmp/eiger-correction/workflow-url.txt
-            optional: true
-            archive:
-              none: {}
-
       podSpecPatch: |
         containers:
         - name: main
