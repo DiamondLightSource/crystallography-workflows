@@ -169,9 +169,9 @@ spec:
 
           visit_dir="{{`{{workflow.parameters.visitdir}}`}}"
           scan_name="i15-1-{{`{{inputs.parameters.filenumber}}`}}"
-          workflow_uid="{{`{{workflow.name}}`}}"
+          workflow_name="{{`{{workflow.name}}`}}"
           scan_path="$visit_dir/$scan_name.nxs"
-          output_dir="$visit_dir/processed/workflows/$scan_name/$workflow_uid"
+          output_dir="$visit_dir/processed/workflows/$scan_name/$workflow_name"
           latest_dir="$visit_dir/processed/$scan_name"
           latest_link="$latest_dir/latest"
 
@@ -238,8 +238,8 @@ spec:
               ln -s "latest/$filename" "$link_path"
             done
 
-            next_latest="$latest_dir/.latest-$workflow_uid-$$"
-            ln -s "../workflows/$scan_name/$workflow_uid" "$next_latest"
+            next_latest="$latest_dir/.latest-$workflow_name-$$"
+            ln -s "../workflows/$scan_name/$workflow_name" "$next_latest"
             mv -Tf -- "$next_latest" "$latest_link"
       outputs:
         artifacts:
