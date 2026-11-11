@@ -1,0 +1,336 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: i15-1-eiger-self-correction
+  labels:
+    workflows.diamond.ac.uk/science-group-crystallography: "true"
+  annotations:
+    workflows.argoproj.io/title: i15-1-eiger-self-correction
+    workflows.argoproj.io/description: |
+      This takes a NeXus filenumber and runs Eiger detector correction.
+    workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
+spec:
+  entrypoint: workflow-entry
+  arguments:
+    parameters:
+      - name: filenumber
+        value: "12345"
+      - name: visitdir
+        valueFrom:
+          configMapKeyRef:
+            name: sessionspaces
+            key: data_directory
+      - name: geometry
+        value: ""
+      - name: detector
+        value: ""
+      - name: monitor
+        value: ""
+      - name: metadata
+        value: ""
+      - name: azimuth-low
+        value: "67.5"
+      - name: azimuth-high
+        value: "112.5"
+      - name: all-azimuths
+        value: "false"
+        enum:
+          - "false"
+          - "true"
+      - name: fit-q-low
+        value: "100.0"
+      - name: fit-q-high
+        value: "400.0"
+      - name: fit-bins
+        value: "1200"
+      - name: iterations
+        value: "10"
+      - name: theta-bins
+        value: "2001"
+      - name: theta-max
+        value: "80.0"
+      - name: angle-tolerance
+        value: "0.001"
+      - name: saturation
+        value: "1e7"
+      - name: polarization
+        value: "0.95"
+      - name: density
+        value: "6.2"
+      - name: overlap-min-pixels
+        value: "100.0"
+      - name: overlap-min-bins
+        value: "20"
+      - name: overlap-floor
+        value: "0.003"
+      - name: validation
+        value: "holdout"
+        enum:
+          - "basic"
+          - "holdout"
+          - "full"
+      - name: raw-audit
+        value: "false"
+        enum:
+          - "false"
+          - "true"
+      - name: diagnostic-low
+        value: "30.0"
+      - name: diagnostic-high
+        value: "80.0"
+      - name: jpeg-dpi
+        value: "140"
+  volumes:
+  - name: session
+    hostPath:
+      path: "{{`{{ workflow.parameters.visitdir }}`}}"
+      type: Directory
+  volumeClaimTemplates:
+  - metadata:
+      name: tmpdir
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: netapp
+  templates:
+    - name: i15-1-eiger-self-correction
+      inputs:
+        parameters:
+          - name: filenumber
+      script:
+        image: ghcr.io/diamondlightsource/eiger-correction:latest
+        command: ["sh"]
+        volumeMounts:
+        - name: tmpdir
+          mountPath: /tmp
+        - name: session
+          mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
+        env:
+          - name: MKL_NUM_THREADS
+            value: "1"
+          - name: NUMEXPR_NUM_THREADS
+            value: "1"
+          - name: OMP_NUM_THREADS
+            value: "1"
+          - name: EIGER_GEOMETRY
+            value: "{{`{{workflow.parameters.geometry}}`}}"
+          - name: EIGER_DETECTOR
+            value: "{{`{{workflow.parameters.detector}}`}}"
+          - name: EIGER_MONITOR
+            value: "{{`{{workflow.parameters.monitor}}`}}"
+          - name: EIGER_METADATA
+            value: "{{`{{workflow.parameters.metadata}}`}}"
+          - name: EIGER_AZIMUTH_LOW
+            value: "{{`{{workflow.parameters.azimuth-low}}`}}"
+          - name: EIGER_AZIMUTH_HIGH
+            value: "{{`{{workflow.parameters.azimuth-high}}`}}"
+          - name: EIGER_ALL_AZIMUTHS
+            value: "{{`{{workflow.parameters.all-azimuths}}`}}"
+          - name: EIGER_FIT_Q_LOW
+            value: "{{`{{workflow.parameters.fit-q-low}}`}}"
+          - name: EIGER_FIT_Q_HIGH
+            value: "{{`{{workflow.parameters.fit-q-high}}`}}"
+          - name: EIGER_FIT_BINS
+            value: "{{`{{workflow.parameters.fit-bins}}`}}"
+          - name: EIGER_ITERATIONS
+            value: "{{`{{workflow.parameters.iterations}}`}}"
+          - name: EIGER_THETA_BINS
+            value: "{{`{{workflow.parameters.theta-bins}}`}}"
+          - name: EIGER_THETA_MAX
+            value: "{{`{{workflow.parameters.theta-max}}`}}"
+          - name: EIGER_ANGLE_TOLERANCE
+            value: "{{`{{workflow.parameters.angle-tolerance}}`}}"
+          - name: EIGER_SATURATION
+            value: "{{`{{workflow.parameters.saturation}}`}}"
+          - name: EIGER_POLARIZATION
+            value: "{{`{{workflow.parameters.polarization}}`}}"
+          - name: EIGER_DENSITY
+            value: "{{`{{workflow.parameters.density}}`}}"
+          - name: EIGER_OVERLAP_MIN_PIXELS
+            value: "{{`{{workflow.parameters.overlap-min-pixels}}`}}"
+          - name: EIGER_OVERLAP_MIN_BINS
+            value: "{{`{{workflow.parameters.overlap-min-bins}}`}}"
+          - name: EIGER_OVERLAP_FLOOR
+            value: "{{`{{workflow.parameters.overlap-floor}}`}}"
+          - name: EIGER_VALIDATION
+            value: "{{`{{workflow.parameters.validation}}`}}"
+          - name: EIGER_RAW_AUDIT
+            value: "{{`{{workflow.parameters.raw-audit}}`}}"
+          - name: EIGER_DIAGNOSTIC_LOW
+            value: "{{`{{workflow.parameters.diagnostic-low}}`}}"
+          - name: EIGER_DIAGNOSTIC_HIGH
+            value: "{{`{{workflow.parameters.diagnostic-high}}`}}"
+          - name: EIGER_JPEG_DPI
+            value: "{{`{{workflow.parameters.jpeg-dpi}}`}}"
+        source: |
+          set -eu
+
+          visit_dir="{{`{{workflow.parameters.visitdir}}`}}"
+          scan_name="i15-1-{{`{{inputs.parameters.filenumber}}`}}"
+          workflow_name="{{`{{workflow.name}}`}}"
+          scan_path="$visit_dir/$scan_name.nxs"
+          output_dir="$visit_dir/processed/workflows/$scan_name/$workflow_name"
+          latest_dir="$visit_dir/processed/$scan_name"
+          latest_link="$latest_dir/latest"
+          workflow_url="https://workflows.diamond.ac.uk/workflows/{{`{{workflow.namespace}}`}}/{{`{{workflow.namespace}}`}}:{{`{{workflow.name}}`}}:{{`{{workflow.uid}}`}}"
+
+          mkdir -p /tmp/eiger-correction
+          printf 'Workflow URL: %s\n' "$workflow_url"
+
+          set --
+          if [ -n "$EIGER_GEOMETRY" ]; then set -- "$@" --geometry "$EIGER_GEOMETRY"; fi
+          if [ -n "$EIGER_DETECTOR" ]; then set -- "$@" --detector "$EIGER_DETECTOR"; fi
+          if [ -n "$EIGER_MONITOR" ]; then set -- "$@" --monitor "$EIGER_MONITOR"; fi
+          if [ -n "$EIGER_METADATA" ]; then set -- "$@" --metadata "$EIGER_METADATA"; fi
+          set -- "$@" --azimuth-range "$EIGER_AZIMUTH_LOW" "$EIGER_AZIMUTH_HIGH"
+          if [ "$EIGER_ALL_AZIMUTHS" = "true" ]; then set -- "$@" --all-azimuths; fi
+          set -- "$@" --fit-q-range "$EIGER_FIT_Q_LOW" "$EIGER_FIT_Q_HIGH"
+          set -- "$@" --fit-bins "$EIGER_FIT_BINS"
+          set -- "$@" --iterations "$EIGER_ITERATIONS"
+          set -- "$@" --theta-bins "$EIGER_THETA_BINS"
+          set -- "$@" --theta-max "$EIGER_THETA_MAX"
+          set -- "$@" --angle-tolerance "$EIGER_ANGLE_TOLERANCE"
+          set -- "$@" --saturation "$EIGER_SATURATION"
+          set -- "$@" --polarization "$EIGER_POLARIZATION"
+          set -- "$@" --density "$EIGER_DENSITY"
+          set -- "$@" --overlap-min-pixels "$EIGER_OVERLAP_MIN_PIXELS"
+          set -- "$@" --overlap-min-bins "$EIGER_OVERLAP_MIN_BINS"
+          set -- "$@" --overlap-floor "$EIGER_OVERLAP_FLOOR"
+          set -- "$@" --validation "$EIGER_VALIDATION"
+          if [ "$EIGER_RAW_AUDIT" = "true" ]; then set -- "$@" --raw-audit; fi
+          set -- "$@" --diagnostic-range "$EIGER_DIAGNOSTIC_LOW" "$EIGER_DIAGNOSTIC_HIGH"
+          set -- "$@" --jpeg-dpi "$EIGER_JPEG_DPI"
+
+            run_status=0
+            eiger-correction "$scan_path" --output-dir "$output_dir" "$@" || run_status=$?
+
+            if [ -d "$output_dir" ]; then
+              cp -R "$output_dir"/. /tmp/eiger-correction/
+            fi
+
+            if [ "$run_status" -ne 0 ]; then
+              exit "$run_status"
+            fi
+
+            printf '%s\n' "$workflow_url" > "$output_dir/workflow-url.txt"
+
+            mkdir -p "$latest_dir"
+            for filename in detector_corrections.h5 pattern.h5 pattern_2theta.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log workflow-url.txt; do
+              if [ ! -f "$output_dir/$filename" ]; then
+                printf 'Expected output is missing: %s\n' "$output_dir/$filename" >&2
+                exit 1
+              fi
+
+              link_path="$latest_dir/$filename"
+              if [ -e "$link_path" ] && [ ! -L "$link_path" ]; then
+                printf 'Refusing to replace non-symlink: %s\n' "$link_path" >&2
+                exit 1
+              fi
+            done
+
+            if [ -e "$latest_link" ] && [ ! -L "$latest_link" ]; then
+              printf 'Refusing to replace non-symlink: %s\n' "$latest_link" >&2
+              exit 1
+            fi
+
+            for filename in detector_corrections.h5 pattern.h5 pattern_2theta.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log workflow-url.txt; do
+              link_path="$latest_dir/$filename"
+              if [ -L "$link_path" ]; then
+                rm -- "$link_path"
+              fi
+              ln -s "latest/$filename" "$link_path"
+            done
+
+            next_latest="$latest_dir/.latest-$workflow_name-$$"
+            ln -s "../workflows/$scan_name/$workflow_name" "$next_latest"
+            mv -Tf -- "$next_latest" "$latest_link"
+      outputs:
+        artifacts:
+          - name: eiger-correction-calibration
+            path: /tmp/eiger-correction/detector_corrections.h5
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-pattern
+            path: /tmp/eiger-correction/pattern.h5
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-pattern-xy
+            path: /tmp/eiger-correction/pattern_2theta.xy
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-angle-grouping
+            path: /tmp/eiger-correction/angle_grouping.jpg
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-azimuth-geometry
+            path: /tmp/eiger-correction/azimuth_geometry.jpg
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-detector-response
+            path: /tmp/eiger-correction/detector_response.jpg
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-final-xy
+            path: /tmp/eiger-correction/final_xy.jpg
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-overlap
+            path: /tmp/eiger-correction/overlap_final_abcd.jpg
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-position-gains
+            path: /tmp/eiger-correction/position_gains.jpg
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-sampling-q
+            path: /tmp/eiger-correction/sampling_q.jpg
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-report-json
+            path: /tmp/eiger-correction/report.json
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-report-markdown
+            path: /tmp/eiger-correction/report.md
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-run-log
+            path: /tmp/eiger-correction/run.log
+            optional: true
+            archive:
+              none: {}
+      podSpecPatch: |
+        containers:
+        - name: main
+          resources:
+            requests:
+              cpu: "4"
+              memory: 10Gi
+            limits:
+              cpu: "4"
+              memory: 20Gi
+
+    - name: workflow-entry
+      dag:
+        tasks:
+        - name: i15-1-eiger-self-correction
+          template: i15-1-eiger-self-correction
+          dependencies: []
+          arguments:
+            parameters:
+            - name: filenumber
+              value: "{{`{{workflow.parameters.filenumber}}`}}"
