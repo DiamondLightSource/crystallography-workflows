@@ -1,7 +1,7 @@
 apiVersion: workflows.diamond.ac.uk/v1alpha1
 kind: ClusterTriggerTemplate
 metadata:
-  name: i11-fast-trigger-trigger
+  name: i11-mythen-trigger
   labels:
     workflows.diamond.ac.uk/source: message-bus
     workflows.diamond.ac.uk/beamline: i11
@@ -9,7 +9,7 @@ spec:
   lifetime: forever # can also specify in seconds, minutes or hours eg. 5h or 3600s or 60m
   eventName: i11-message
   workflow:
-    template: i11-fast-trigger
+    template: i11-mythen-analysis
     triggerOnMessageType: stop # can also use start - to trigger at startdoc
     parameters:
       - name: visitdir
