@@ -47,8 +47,6 @@ spec:
           mountPath: /tmp
         - name: session
           mountPath: "{{`{{ workflow.parameters.visitdir }}`}}"
-        - name: dls_sw
-          mountPath: /dls_sw/i11/software/mythen
         command: ["python"]
         env:
           - name: MKL_NUM_THREADS
