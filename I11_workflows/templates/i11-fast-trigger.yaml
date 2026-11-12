@@ -70,7 +70,7 @@ spec:
 
           nexus_filepath = Path(visit_dir) / filename
 
-          output_filepaths = run_mythen_analysis(filepath=str(nexus_filepath))
+          output_filepaths = run_mythen_analysis(nexus_filepath=str(nexus_filepath))
 
           if not isinstance(output_filepaths, list):
 
