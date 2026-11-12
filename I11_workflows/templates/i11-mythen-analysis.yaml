@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: i11-fast-trigger
+  name: i11-mythen-analysis
   labels:
     workflows.diamond.ac.uk/science-group-crystallography: "true"
   annotations:
-    workflows.argoproj.io/title: i11-fast-trigger
+    workflows.argoproj.io/title: i11-mythen-analysis
     workflows.argoproj.io/description: |
       This takes a nxs filenumber and runs the mythen time resolved scan
       processing. This should be done at the end of every scan.
