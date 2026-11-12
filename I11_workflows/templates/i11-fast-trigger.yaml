@@ -59,7 +59,7 @@ spec:
 
           import json
 
-          from xrpd_toolbox.i11.mythen_analysis import run_mythen_time_resolved_scan
+          from xrpd_toolbox.i11.mythen_analysis import run_mythen_analysis
           from pathlib import Path
 
           filenumber_str = str("{{`{{ inputs.parameters.filenumber }}`}}")
@@ -70,7 +70,12 @@ spec:
 
           nexus_filepath = Path(visit_dir) / filename
 
-          output_filepaths = run_mythen_time_resolved_scan(filepath=str(nexus_filepath))
+          output_filepaths = run_mythen_analysis(filepath=str(nexus_filepath))
+
+          if not isinstance(output_filepaths, list):
+
+              output_filepaths = [output_filepaths]
+
 
           with open("/tmp/mythen-output-filepaths.json", "w") as f:
               json.dump([str(p) for p in output_filepaths], f)
