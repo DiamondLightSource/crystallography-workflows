@@ -38,17 +38,17 @@ spec:
           - "false"
           - "true"
       - name: fit-q-low
-        value: "100.0"
+        value: "10.0"
       - name: fit-q-high
-        value: "400.0"
-      - name: fit-bins
-        value: "1200"
+        value: "40.0"
+      - name: q-step-size
+        value: "0.025"
       - name: iterations
         value: "10"
-      - name: theta-bins
-        value: "2001"
-      - name: theta-max
-        value: "80.0"
+      - name: two-theta-step-size
+        value: "0.025"
+      - name: q-max
+        value: ""
       - name: angle-tolerance
         value: "0.001"
       - name: saturation
@@ -132,14 +132,14 @@ spec:
             value: "{{`{{workflow.parameters.fit-q-low}}`}}"
           - name: EIGER_FIT_Q_HIGH
             value: "{{`{{workflow.parameters.fit-q-high}}`}}"
-          - name: EIGER_FIT_BINS
-            value: "{{`{{workflow.parameters.fit-bins}}`}}"
+          - name: EIGER_Q_STEP_SIZE
+            value: "{{`{{workflow.parameters.q-step-size}}`}}"
           - name: EIGER_ITERATIONS
             value: "{{`{{workflow.parameters.iterations}}`}}"
-          - name: EIGER_THETA_BINS
-            value: "{{`{{workflow.parameters.theta-bins}}`}}"
-          - name: EIGER_THETA_MAX
-            value: "{{`{{workflow.parameters.theta-max}}`}}"
+          - name: EIGER_TWO_THETA_STEP_SIZE
+            value: "{{`{{workflow.parameters.two-theta-step-size}}`}}"
+          - name: EIGER_Q_MAX
+            value: "{{`{{workflow.parameters.q-max}}`}}"
           - name: EIGER_ANGLE_TOLERANCE
             value: "{{`{{workflow.parameters.angle-tolerance}}`}}"
           - name: EIGER_SATURATION
@@ -187,10 +187,10 @@ spec:
           set -- "$@" --azimuth-range "$EIGER_AZIMUTH_LOW" "$EIGER_AZIMUTH_HIGH"
           if [ "$EIGER_ALL_AZIMUTHS" = "true" ]; then set -- "$@" --all-azimuths; fi
           set -- "$@" --fit-q-range "$EIGER_FIT_Q_LOW" "$EIGER_FIT_Q_HIGH"
-          set -- "$@" --fit-bins "$EIGER_FIT_BINS"
+          set -- "$@" --q-step-size "$EIGER_Q_STEP_SIZE"
           set -- "$@" --iterations "$EIGER_ITERATIONS"
-          set -- "$@" --theta-bins "$EIGER_THETA_BINS"
-          set -- "$@" --theta-max "$EIGER_THETA_MAX"
+          set -- "$@" --two-theta-step-size "$EIGER_TWO_THETA_STEP_SIZE"
+          if [ -n "$EIGER_Q_MAX" ]; then set -- "$@" --q-max "$EIGER_Q_MAX"; fi
           set -- "$@" --angle-tolerance "$EIGER_ANGLE_TOLERANCE"
           set -- "$@" --saturation "$EIGER_SATURATION"
           set -- "$@" --polarization "$EIGER_POLARIZATION"
@@ -217,7 +217,7 @@ spec:
             printf '%s\n' "$workflow_url" > "$output_dir/workflow-url.txt"
 
             mkdir -p "$latest_dir"
-            for filename in detector_corrections.h5 pattern.h5 pattern_2theta.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log workflow-url.txt; do
+            for filename in detector_corrections.h5 pattern.h5 pattern_tth.xy pattern_q.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log workflow-url.txt; do
               if [ ! -f "$output_dir/$filename" ]; then
                 printf 'Expected output is missing: %s\n' "$output_dir/$filename" >&2
                 exit 1
@@ -235,7 +235,7 @@ spec:
               exit 1
             fi
 
-            for filename in detector_corrections.h5 pattern.h5 pattern_2theta.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log workflow-url.txt; do
+            for filename in detector_corrections.h5 pattern.h5 pattern_tth.xy pattern_q.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log workflow-url.txt; do
               link_path="$latest_dir/$filename"
               if [ -L "$link_path" ]; then
                 rm -- "$link_path"
@@ -258,8 +258,13 @@ spec:
             optional: true
             archive:
               none: {}
-          - name: eiger-correction-pattern-xy
-            path: /tmp/eiger-correction/pattern_2theta.xy
+          - name: eiger-correction-pattern-tth-xy
+            path: /tmp/eiger-correction/pattern_tth.xy
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-pattern-q-xy
+            path: /tmp/eiger-correction/pattern_q.xy
             optional: true
             archive:
               none: {}
