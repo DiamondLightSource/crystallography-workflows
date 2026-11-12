@@ -14,6 +14,19 @@ see also the examples shown here:
 
 https://github.com/DiamondLightSource/workflows/tree/main/examples
 
+## testing a workflow from the CLI
+```bash
+module load workflows
+
+VISIT_ID="your-visit-id"
+FILENUMBER="your-scan-number"
+
+workflows submit --manifest-type helm -s "$VISIT_ID" \
+  -p "filenumber=$FILENUMBER" \
+  -p "some-argument"="some-value" \
+  /path/to/templates/template.yaml
+```
+
 # manually building a container images
 
 You must first commit your changes to a repo. Then do this to build the container image:
