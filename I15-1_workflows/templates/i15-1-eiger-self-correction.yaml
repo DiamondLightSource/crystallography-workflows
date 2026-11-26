@@ -8,6 +8,8 @@ metadata:
     workflows.argoproj.io/title: i15-1-eiger-self-correction
     workflows.argoproj.io/description: |
       This takes a NeXus filenumber and runs Eiger detector correction.
+      Multi-point scans (e.g. blower temperature series) produce one pattern
+      per data point: patterns.h5, point_NN_<T>C_{tth,q}.xy and point_* folders.
     workflows.diamond.ac.uk/repository: "https://github.com/DiamondLightSource/crystallography-workflows"
 spec:
   entrypoint: workflow-entry
@@ -216,13 +218,42 @@ spec:
 
             printf '%s\n' "$workflow_url" > "$output_dir/workflow-url.txt"
 
-            mkdir -p "$latest_dir"
-            for filename in detector_corrections.h5 pattern.h5 pattern_tth.xy pattern_q.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log workflow-url.txt; do
+            # Products linked from $latest_dir. A multi-point scan (e.g. a blower
+            # temperature series) writes patterns.h5, one XY pair per data point
+            # and one point_* directory (calibration + JPEGs) per data point
+            # instead of the single-point set.
+            common_products="report.json report.md run.log workflow-url.txt"
+            if [ -f "$output_dir/patterns.h5" ]; then
+              products="patterns.h5 $common_products"
+              required="patterns.h5 $common_products"
+              point_count=0
+              for point_dir in "$output_dir"/point_*/; do
+                if [ ! -d "$point_dir" ]; then
+                  continue
+                fi
+                point=$(basename "$point_dir")
+                products="$products $point ${point}_tth.xy ${point}_q.xy"
+                required="$required $point/detector_corrections.h5 ${point}_tth.xy ${point}_q.xy"
+                point_count=$((point_count + 1))
+              done
+              if [ "$point_count" -eq 0 ]; then
+                printf 'Multi-point run has no point_* outputs: %s\n' "$output_dir" >&2
+                exit 1
+              fi
+            else
+              products="detector_corrections.h5 pattern.h5 pattern_tth.xy pattern_q.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg $common_products"
+              required="$products"
+            fi
+
+            for filename in $required; do
               if [ ! -f "$output_dir/$filename" ]; then
                 printf 'Expected output is missing: %s\n' "$output_dir/$filename" >&2
                 exit 1
               fi
+            done
 
+            mkdir -p "$latest_dir"
+            for filename in $products; do
               link_path="$latest_dir/$filename"
               if [ -e "$link_path" ] && [ ! -L "$link_path" ]; then
                 printf 'Refusing to replace non-symlink: %s\n' "$link_path" >&2
@@ -235,12 +266,18 @@ spec:
               exit 1
             fi
 
-            for filename in detector_corrections.h5 pattern.h5 pattern_tth.xy pattern_q.xy angle_grouping.jpg azimuth_geometry.jpg detector_response.jpg final_xy.jpg overlap_final_abcd.jpg position_gains.jpg sampling_q.jpg report.json report.md run.log workflow-url.txt; do
-              link_path="$latest_dir/$filename"
+            # Drop links from a previous run that this run does not produce (e.g.
+            # pattern.h5 after a rerun as multi-point), so none are left dangling.
+            for link_path in "$latest_dir"/*; do
               if [ -L "$link_path" ]; then
-                rm -- "$link_path"
+                case "$(readlink -- "$link_path")" in
+                  latest/*) rm -- "$link_path" ;;
+                esac
               fi
-              ln -s "latest/$filename" "$link_path"
+            done
+
+            for filename in $products; do
+              ln -s "latest/$filename" "$latest_dir/$filename"
             done
 
             next_latest="$latest_dir/.latest-$workflow_name-$$"
@@ -258,6 +295,17 @@ spec:
             optional: true
             archive:
               none: {}
+          - name: eiger-correction-patterns
+            # Multi-point scans only: one NXentry per data point.
+            path: /tmp/eiger-correction/patterns.h5
+            optional: true
+            archive:
+              none: {}
+          - name: eiger-correction-outputs
+            # Whole run directory (tar.gz), including per-point XY files and
+            # point_* directories whose names depend on the setpoints.
+            path: /tmp/eiger-correction
+            optional: true
           - name: eiger-correction-pattern-tth-xy
             path: /tmp/eiger-correction/pattern_tth.xy
             optional: true
